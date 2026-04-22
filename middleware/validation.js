@@ -1,7 +1,52 @@
 const { body, validationResult } = require("express-validator");
+const { ROLE_VALUES } = require("../constants/roles");
+const { SERVICE_TYPE_VALUES } = require("../constants/serviceTypes");
+const Booking = require("../models/Booking");
 
-// Validation rules for each model
-const userValidation = [
+// Validation rules
+const userCreateValidation = [
+  body("username")
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 32 })
+    .withMessage("Username must be 3-32 chars"),
+  body("password")
+    .isString()
+    .isLength({ min: 8, max: 64 })
+    .withMessage("Password must be 8-64 chars"),
+  body("email")
+    .optional()
+    .isEmail()
+    .normalizeEmail()
+    .withMessage("Invalid email"),
+  body("roles")
+    .optional()
+    .isArray()
+    .withMessage("roles must be an array")
+    .bail()
+    .custom((roles) =>
+      roles.every((r) => ROLE_VALUES.includes(String(r).toLowerCase())),
+    )
+    .withMessage(`roles must be one of: ${ROLE_VALUES.join(", ")}`),
+  body("activated")
+    .optional()
+    .isBoolean()
+    .withMessage("activated must be boolean"),
+];
+
+const userLoginValidation = [
+  body("username")
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 32 })
+    .withMessage("username is required"),
+  body("password")
+    .isString()
+    .isLength({ min: 1, max: 64 })
+    .withMessage("password is required"),
+];
+
+const customerRegisterValidation = [
   body("username")
     .isString()
     .trim()
@@ -18,63 +63,82 @@ const userValidation = [
     .withMessage("Invalid email"),
 ];
 
+const passwordResetValidation = [
+  body("username")
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 32 })
+    .withMessage("username is required"),
+  body("newPassword")
+    .isString()
+    .isLength({ min: 8, max: 64 })
+    .withMessage("newPassword must be 8-64 chars"),
+];
+
 const roleValidation = [
   body("name")
+    .optional()
+    .isString()
+    .trim()
+    .custom((value) => ROLE_VALUES.includes(String(value).toLowerCase()))
+    .withMessage(`Role name must be one of: ${ROLE_VALUES.join(", ")}`),
+];
+
+const clientApplicationRegisterValidation = [
+  body("username")
     .isString()
     .trim()
     .isLength({ min: 3, max: 32 })
-    .withMessage("Role name must be 3-32 chars"),
-  body("permissions").isArray().optional(),
-];
-
-const permissionValidation = [
-  body("name")
+    .withMessage("Username must be 3-32 chars"),
+  body("password")
+    .isString()
+    .isLength({ min: 8, max: 64 })
+    .withMessage("Password must be 8-64 chars"),
+  body("email").optional().isEmail().normalizeEmail(),
+  body("serviceType")
     .isString()
     .trim()
-    .isLength({ min: 3, max: 32 })
-    .withMessage("Permission name must be 3-32 chars"),
-  body("description").optional().isString().isLength({ max: 128 }),
+    .custom((value) =>
+      SERVICE_TYPE_VALUES.includes(String(value).toLowerCase()),
+    )
+    .withMessage(
+      `serviceType must be one of: ${SERVICE_TYPE_VALUES.join(", ")}`,
+    ),
+  body("submittedData")
+    .isObject()
+    .withMessage("submittedData must be an object"),
 ];
 
-const publicationValidation = [
-  body("title")
+const applicationDecisionValidation = [
+  body("note")
+    .optional()
     .isString()
-    .trim()
-    .isLength({ min: 3, max: 1000 })
-    .withMessage("Title must be 3-1000 chars"),
-  body("category").isString().trim().isLength({ min: 3, max: 32 }),
-  body("date").optional().isISO8601().toDate(),
-  body("description").optional().isString().isLength({ max: 1024 }),
-  // body("relatedInfo").optional().isString().isLength({ max: 1024 }),
-  body("sectors").optional().isArray(),
-  // Validate term titles if provided (for create/update with terms)
-  body("terms").optional().isArray(),
-  body("terms.*.title")
-    .isString()
-    .isLength({ min: 3, max: 1000 })
-    .withMessage("Term title must be 3-1000 chars"),
-  // File validation (PDF, max 5MB)
-  (req, res, next) => {
-    if (req.file) {
-      if (req.file.mimetype !== "application/pdf") {
-        return res.status(400).json({ error: "Only PDF files are allowed." });
-      }
-      if (req.file.size > 1 * 1024 * 1024) {
-        return res.status(400).json({ error: "File size exceeds 1MB limit." });
-      }
-    }
-    next();
-  },
+    .isLength({ max: 2000 })
+    .withMessage("note must be <= 2000 chars"),
 ];
 
-const sectorValidation = [
-  body("name")
+const bookingCreateValidation = [
+  body("applicationId")
+    .isMongoId()
+    .withMessage("applicationId must be a valid MongoId"),
+  body("bookingData").isObject().withMessage("bookingData must be an object"),
+];
+
+const bookingStatusUpdateValidation = [
+  body("status")
     .isString()
     .trim()
-    .isLength({ min: 2, max: 64 })
-    .withMessage("Sector name must be 2-64 chars"),
-  body("description").optional().isString().isLength({ max: 256 }),
-  body("parent").optional().isString(),
+    .custom((value) =>
+      Object.values(Booking.Statuses).includes(String(value).toLowerCase()),
+    )
+    .withMessage(
+      `status must be one of: ${Object.values(Booking.Statuses).join(", ")}`,
+    ),
+  body("note")
+    .optional()
+    .isString()
+    .isLength({ max: 2000 })
+    .withMessage("note must be <= 2000 chars"),
 ];
 
 // Middleware to check validation result
@@ -87,10 +151,14 @@ function validate(req, res, next) {
 }
 
 module.exports = {
-  userValidation,
+  userCreateValidation,
+  userLoginValidation,
+  customerRegisterValidation,
+  passwordResetValidation,
   roleValidation,
-  permissionValidation,
-  publicationValidation,
-  sectorValidation,
+  clientApplicationRegisterValidation,
+  applicationDecisionValidation,
+  bookingCreateValidation,
+  bookingStatusUpdateValidation,
   validate,
 };

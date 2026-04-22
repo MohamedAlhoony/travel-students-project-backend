@@ -2,35 +2,56 @@ const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const auth = require("../middleware/auth");
-const permission = require("../middleware/permission");
-const { userValidation, validate } = require("../middleware/validation");
+const requireRole = require("../middleware/requireRole");
+const { Roles } = require("../constants/roles");
+const {
+  userCreateValidation,
+  userLoginValidation,
+  customerRegisterValidation,
+  passwordResetValidation,
+  validate,
+} = require("../middleware/validation");
+
+// Public: customer register
+router.post(
+  "/register",
+  customerRegisterValidation,
+  validate,
+  userController.registerCustomer,
+);
 
 router.post(
   "/",
   auth,
-  permission("user_create"),
-  userValidation,
+  requireRole(Roles.ADMIN),
+  userCreateValidation,
   validate,
   userController.create,
 );
 router.get("/profile", auth, userController.profile);
-router.get("/", auth, permission("user_list"), userController.getAll);
-router.get("/:id", auth, permission("user_view"), userController.getById);
-router.put("/:id", auth, permission("user_update"), userController.update);
-router.delete("/:id", auth, permission("user_delete"), userController.delete);
-router.post("/login", userValidation, validate, userController.login);
+router.get(
+  "/clients",
+  auth,
+  requireRole(Roles.ADMIN),
+  userController.listClients,
+);
+router.get("/", auth, requireRole(Roles.ADMIN), userController.getAll);
+router.get("/:id", auth, userController.getById);
+router.put("/:id", auth, userController.update);
+router.delete("/:id", auth, requireRole(Roles.ADMIN), userController.delete);
+router.post("/login", userLoginValidation, validate, userController.login);
 router.post(
   "/reset-password",
   auth,
-  permission("user_reset_password"),
-  userValidation,
+  requireRole(Roles.ADMIN),
+  passwordResetValidation,
   validate,
   userController.resetPassword,
 );
 router.patch(
   "/:id/activation",
   auth,
-  permission("user_activate"),
+  requireRole(Roles.ADMIN),
   userController.updateUserActivation,
 );
 module.exports = router;

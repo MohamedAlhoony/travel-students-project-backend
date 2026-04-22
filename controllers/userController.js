@@ -1,11 +1,16 @@
-const User = require("../models/User");
-const Role = require("../models/Role");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
+const User = require("../models/User");
+const { Roles } = require("../constants/roles");
+
+function isAdmin(req) {
+  const roles = req.user && Array.isArray(req.user.roles) ? req.user.roles : [];
+  return roles.includes(Roles.ADMIN);
+}
 
 exports.create = async (req, res) => {
   try {
-    // Check if username already exists
     const existingUser = await User.findOne({ username: req.body.username });
     if (existingUser) {
       return res.status(400).json({
@@ -13,7 +18,6 @@ exports.create = async (req, res) => {
         message: "Username is already in use.",
       });
     }
-    // Check if email already exists (if provided)
     if (req.body.email) {
       const existingEmail = await User.findOne({ email: req.body.email });
       if (existingEmail) {
@@ -23,13 +27,22 @@ exports.create = async (req, res) => {
         });
       }
     }
-    // Check if emailAppPassword is present, set canSendEmail to true
-    if (req.body.emailAppPassword) {
-      req.body.canSendEmail = true;
-    }
-    const user = await User.create(req.body);
-    const userObj = user.toObject();
-    delete userObj.password;
+
+    const passwordHash = await bcrypt.hash(req.body.password, 10);
+    const roles =
+      Array.isArray(req.body.roles) && req.body.roles.length
+        ? req.body.roles.map((r) => String(r).toLowerCase())
+        : [Roles.CUSTOMER];
+
+    const user = await User.create({
+      username: req.body.username,
+      email: req.body.email,
+      passwordHash,
+      roles,
+      activated:
+        typeof req.body.activated === "boolean" ? req.body.activated : true,
+    });
+    const userObj = User.sanitize(user);
     res.status(201).json({
       success: true,
       message: "User created successfully.",
@@ -63,8 +76,7 @@ exports.updateUserActivation = async (req, res) => {
         message: "User not found.",
       });
     }
-    const userObj = user.toObject();
-    delete userObj.password;
+    const userObj = User.sanitize(user);
     res.json({
       success: true,
       message: "User activation status updated successfully.",
@@ -89,7 +101,6 @@ exports.getAll = async (req, res) => {
     } = req.query;
     const query = {};
     if (search) {
-      // Search by username or email (case-insensitive)
       query.$or = [
         { username: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
@@ -97,23 +108,16 @@ exports.getAll = async (req, res) => {
     }
 
     const total = await User.countDocuments(query);
-    // Determine sort direction
     const sortDirection = direction === "desc" ? -1 : 1;
-    const sortObj = {};
-    sortObj[sort] = sortDirection;
+    const sortObj = { [sort]: sortDirection };
 
     const users = await User.find(query)
-      .populate("roles")
       .sort(sortObj)
-      .skip((page - 1) * limit)
+      .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
 
-    const usersNoPassword = users.map((u) => {
-      const obj = u.toObject();
-      delete obj.password;
-      return obj;
-    });
-    const totalPages = Math.ceil(total / limit);
+    const usersNoPassword = users.map((u) => User.sanitize(u));
+    const totalPages = Math.max(1, Math.ceil(total / Number(limit)));
     res.json({
       success: true,
       message: "Users fetched successfully.",
@@ -138,11 +142,13 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).populate("roles");
+    const isSelf = req.userId === req.params.id;
+    if (!isSelf && !isAdmin(req)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: "Not found" });
-    const userObj = user.toObject();
-    delete userObj.password;
-    res.json(userObj);
+    res.json(User.sanitize(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -150,16 +156,37 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    // If emailAppPassword is present in update, set canSendEmail to true
-    if (req.body.emailAppPassword) {
-      req.body.canSendEmail = true;
+    const isSelf = req.userId === req.params.id;
+    if (!isSelf && !isAdmin(req)) {
+      return res.status(403).json({ error: "Forbidden" });
     }
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+
+    const updates = {};
+    if (req.body.username) updates.username = req.body.username;
+    if (req.body.email !== undefined) updates.email = req.body.email;
+
+    // Only admins can change roles/activation
+    if (isAdmin(req)) {
+      if (req.body.roles !== undefined) {
+        updates.roles = Array.isArray(req.body.roles)
+          ? req.body.roles.map((r) => String(r).toLowerCase())
+          : req.body.roles;
+      }
+      if (typeof req.body.activated === "boolean") {
+        updates.activated = req.body.activated;
+      }
+    }
+
+    if (req.body.password) {
+      updates.passwordHash = await bcrypt.hash(req.body.password, 10);
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, updates, {
       new: true,
+      runValidators: true,
     });
     if (!user) return res.status(404).json({ error: "Not found" });
-    const userObj = user.toObject();
-    delete userObj.password;
+    const userObj = User.sanitize(user);
     res.json({
       success: true,
       message: "User updated successfully.",
@@ -187,7 +214,7 @@ exports.delete = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username }).populate("roles");
+    const user = await User.findOne({ username });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
     if (user.activated === false) {
       return res
@@ -202,11 +229,68 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET || "secret",
       { expiresIn: "1d" },
     );
-    const userObj = user.toObject();
-    delete userObj.password;
-    res.json({ message: "Login successful", token, user: userObj });
+    res.json({
+      message: "Login successful",
+      token,
+      user: User.sanitize(user),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Public: customer registration
+exports.registerCustomer = async (req, res) => {
+  try {
+    const username = String(req.body.username).trim();
+    const email = req.body.email
+      ? String(req.body.email).trim().toLowerCase()
+      : undefined;
+
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Username is already in use.",
+      });
+    }
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is already in use.",
+        });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(req.body.password, 10);
+    const user = await User.create({
+      username,
+      email,
+      passwordHash,
+      roles: [Roles.CUSTOMER],
+      activated: true,
+    });
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || "secret",
+      { expiresIn: "1d" },
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Customer registered successfully.",
+      token,
+      user: User.sanitize(user),
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to register customer.",
+      error: err.message,
+    });
   }
 };
 
@@ -215,9 +299,7 @@ exports.resetPassword = async (req, res) => {
     const { username, newPassword } = req.body;
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ error: "User not found" });
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
     res.json({ message: "Password reset successful" });
   } catch (err) {
@@ -227,61 +309,35 @@ exports.resetPassword = async (req, res) => {
 
 exports.profile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).populate({
-      path: "roles",
-      populate: {
-        path: "permissions",
-        model: "Permission",
-      },
-    });
+    if (!mongoose.isValidObjectId(req.userId)) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
-    const userObj = user.toObject();
-    delete userObj.password;
-    delete userObj.emailAppPassword; // Remove emailAppPassword
-
-    // Collect all unique permissions from roles
-    const permissionsMap = {};
-    const permissionsArr = [];
-    if (userObj.roles && Array.isArray(userObj.roles)) {
-      userObj.roles.forEach((role) => {
-        if (role.permissions && Array.isArray(role.permissions)) {
-          role.permissions.forEach((permission) => {
-            const permId = permission._id
-              ? permission._id.toString()
-              : permission;
-            if (!permissionsMap[permId]) {
-              permissionsMap[permId] = true;
-              permissionsArr.push(permission);
-            }
-          });
-        }
-      });
-    }
-    // Flatten permissions to array of names only
-    userObj.permissions = permissionsArr
-      .map((permission) => {
-        if (permission && typeof permission.toObject === "function") {
-          permission = permission.toObject();
-        }
-        return permission && permission.name ? permission.name : permission;
-      })
-      .filter(Boolean);
-
-    // Remove permissions from inside each role, keep only name
-    if (userObj.roles && Array.isArray(userObj.roles)) {
-      userObj.roles = userObj.roles.map((role) => {
-        if (role && typeof role.toObject === "function") {
-          role = role.toObject();
-        }
-        return role && role.name ? { name: role.name } : role;
-      });
-    }
-
-    // Ensure canSendEmail is present in the response
-    userObj.canSendEmail = user.canSendEmail;
-
-    res.json(userObj);
+    res.json(User.sanitize(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Admin: list clients (service providers) optionally filtered by activation
+exports.listClients = async (req, res) => {
+  try {
+    const { activated } = req.query;
+    const query = { roles: Roles.CLIENT };
+    if (activated === "true") query.activated = true;
+    if (activated === "false") query.activated = false;
+
+    const clients = await User.find(query).sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      data: clients.map((u) => User.sanitize(u)),
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to list clients.",
+      error: err.message,
+    });
   }
 };

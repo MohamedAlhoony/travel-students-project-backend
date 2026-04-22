@@ -1,65 +1,33 @@
+const mongoose = require("mongoose");
 const Role = require("../models/Role");
-const User = require("../models/User");
+
+function fixedRolesMessage() {
+  return "Roles are fixed enums (admin, client, customer) and cannot be created/updated/deleted.";
+}
 
 exports.create = async (req, res) => {
-  try {
-    // Check if role name already exists
-    const existingRole = await Role.findOne({ name: req.body.name });
-    if (existingRole) {
-      return res.status(400).json({
-        success: false,
-        message: "Role name is already in use.",
-      });
-    }
-    const role = await Role.create(req.body);
-    res.status(201).json({
-      success: true,
-      message: "Role created successfully.",
-      data: role,
-    });
-  } catch (err) {
-    res.status(400).json({
-      success: false,
-      message: "Failed to create role.",
-      error: err.message,
-    });
-  }
+  res.status(405).json({
+    success: false,
+    message: fixedRolesMessage(),
+  });
 };
 
 exports.getAll = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sort = "name",
-      direction = "asc",
-    } = req.query;
-    const skip = (page - 1) * limit;
-    // Determine sort direction
-    const sortDirection = direction === "desc" ? -1 : 1;
-    const sortObj = {};
-    sortObj[sort] = sortDirection;
-
-    const [roles, total] = await Promise.all([
-      Role.find()
-        .populate("permissions")
-        .sort(sortObj)
-        .skip(skip)
-        .limit(Number(limit)),
-      Role.countDocuments(),
-    ]);
-    const totalPages = Math.ceil(total / limit);
+    const roles = await Role.find().sort({ name: 1 });
+    const total = roles.length;
+    const totalPages = 1;
     res.json({
       success: true,
       message: "Roles fetched successfully.",
       data: roles,
       meta: {
         total,
-        page: Number(page),
-        limit: Number(limit),
+        page: 1,
+        limit: total,
         totalPages,
-        hasNextPage: Number(page) < totalPages,
-        hasPrevPage: Number(page) > 1,
+        hasNextPage: false,
+        hasPrevPage: false,
       },
     });
   } catch (err) {
@@ -73,7 +41,12 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
-    const role = await Role.findById(req.params.id).populate("permissions");
+    const id = String(req.params.id || "")
+      .trim()
+      .toLowerCase();
+    const role = mongoose.isValidObjectId(id)
+      ? await Role.findById(id)
+      : await Role.findOne({ name: id });
     if (!role) {
       return res.status(404).json({
         success: false,
@@ -95,57 +68,15 @@ exports.getById = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-  try {
-    const role = await Role.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    if (!role) {
-      return res.status(404).json({
-        success: false,
-        message: "Role not found.",
-      });
-    }
-    res.json({
-      success: true,
-      message: "Role updated successfully.",
-      data: role,
-    });
-  } catch (err) {
-    res.status(400).json({
-      success: false,
-      message: "Failed to update role.",
-      error: err.message,
-    });
-  }
+  res.status(405).json({
+    success: false,
+    message: fixedRolesMessage(),
+  });
 };
 
 exports.delete = async (req, res) => {
-  try {
-    // Check if any user is assigned to this role
-    const usersWithRole = await User.find({ roles: req.params.id }).limit(1);
-    if (usersWithRole.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot delete role: it is assigned to one or more users.",
-      });
-    }
-    const role = await Role.findByIdAndDelete(req.params.id);
-    if (!role) {
-      return res.status(404).json({
-        success: false,
-        message: "Role not found.",
-      });
-    }
-    res.json({
-      success: true,
-      message: "Role deleted successfully.",
-      data: role,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete role.",
-      error: err.message,
-    });
-  }
+  res.status(405).json({
+    success: false,
+    message: fixedRolesMessage(),
+  });
 };

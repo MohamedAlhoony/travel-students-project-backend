@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const morgan = require("morgan");
 const app = express();
 
+const { ensureSeedData } = require("./startup/seed");
+
 // Enable CORS for all origins
 app.use(cors());
 app.use(express.json());
@@ -13,12 +15,19 @@ app.use(express.json());
 app.use(morgan("combined"));
 
 // MongoDB connection
+if (!process.env.MONGO_URI) {
+  console.warn("MONGO_URI is not set; API will not be able to access MongoDB.");
+}
+
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log("MongoDB connected"))
+  .then(async () => {
+    console.log("MongoDB connected");
+    await ensureSeedData();
+  })
   .catch((err) => console.error("MongoDB connection error:", err));
 
 app.get("/", (req, res) => {
@@ -26,16 +35,11 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use("/api/permissions", require("./routes/permissions"));
 app.use("/api/roles", require("./routes/roles"));
 app.use("/api/users", require("./routes/users"));
-app.use("/api/publications", require("./routes/publications"));
-app.use(
-  "/api/publications/:publicationId/terms",
-  require("./routes/publicationTerms"),
-);
-app.use("/api/sectors", require("./routes/sectors"));
-app.use("/api/reports", require("./routes/reports"));
+app.use("/api/applications", require("./routes/providerApplications"));
+app.use("/api/services", require("./routes/services"));
+app.use("/api/bookings", require("./routes/bookings"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
