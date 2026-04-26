@@ -119,9 +119,59 @@ const applicationDecisionValidation = [
 
 const bookingCreateValidation = [
   body("applicationId")
+    .optional()
     .isMongoId()
     .withMessage("applicationId must be a valid MongoId"),
+  body("providerUserId")
+    .optional()
+    .isMongoId()
+    .withMessage("providerUserId must be a valid MongoId"),
+  body("serviceType")
+    .optional()
+    .isString()
+    .trim()
+    .custom((value) =>
+      SERVICE_TYPE_VALUES.includes(String(value).toLowerCase()),
+    )
+    .withMessage(
+      `serviceType must be one of: ${SERVICE_TYPE_VALUES.join(", ")}`,
+    ),
   body("bookingData").isObject().withMessage("bookingData must be an object"),
+
+  // Optional wallet payment
+  body("payWithBalance")
+    .optional()
+    .isBoolean()
+    .withMessage("payWithBalance must be boolean"),
+  body("amount")
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage("amount must be a positive number"),
+];
+
+const walletTopupValidation = [
+  body("amount")
+    .isFloat({ gt: 0 })
+    .withMessage("amount must be a positive number"),
+  body("note")
+    .optional()
+    .isString()
+    .isLength({ max: 2000 })
+    .withMessage("note must be <= 2000 chars"),
+];
+
+const walletAdjustValidation = [
+  body("amount")
+    .isFloat()
+    .withMessage("amount must be a number")
+    .bail()
+    .custom((value) => Number(value) !== 0)
+    .withMessage("amount must be non-zero"),
+  body("note")
+    .optional()
+    .isString()
+    .isLength({ max: 2000 })
+    .withMessage("note must be <= 2000 chars"),
 ];
 
 const bookingStatusUpdateValidation = [
@@ -160,5 +210,7 @@ module.exports = {
   applicationDecisionValidation,
   bookingCreateValidation,
   bookingStatusUpdateValidation,
+  walletTopupValidation,
+  walletAdjustValidation,
   validate,
 };

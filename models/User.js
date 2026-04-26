@@ -36,6 +36,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // Wallet balance (simple internal accounting).
+    // Stored as a Number (currency units). Keep it non-negative.
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true },
 );

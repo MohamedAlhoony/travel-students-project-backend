@@ -2,7 +2,22 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const BalanceTransaction = require("../models/BalanceTransaction");
 const { Roles } = require("../constants/roles");
+
+function roundMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return NaN;
+  return Math.round(n * 100) / 100;
+}
+
+async function ensureBalanceField(userId) {
+  if (!mongoose.isValidObjectId(userId)) return;
+  await User.updateOne(
+    { _id: userId, balance: { $exists: false } },
+    { $set: { balance: 0 } },
+  );
+}
 
 function isAdmin(req) {
   const roles = req.user && Array.isArray(req.user.roles) ? req.user.roles : [];
@@ -56,6 +71,24 @@ exports.create = async (req, res) => {
     });
   }
 };
+
+
+
+function normalizeRolesFilter(rawRoles) {
+  if (rawRoles === undefined || rawRoles === null || rawRoles === "") {
+    return [];
+  }
+
+  const values = Array.isArray(rawRoles)
+    ? rawRoles
+    : String(rawRoles).split(",");
+
+  return values
+    .map((value) => String(value).trim().toLowerCase())
+    .filter(Boolean);
+}
+
+
 exports.updateUserActivation = async (req, res) => {
   try {
     const { activated } = req.body;
@@ -98,8 +131,18 @@ exports.getAll = async (req, res) => {
       sort = "username",
       search = "",
       direction = "asc",
+      role,
+      roles,
     } = req.query;
     const query = {};
+
+    const roleValues = normalizeRolesFilter(roles !== undefined ? roles : role);
+    if (roleValues.length === 1) {
+      query.roles = roleValues[0];
+    } else if (roleValues.length > 1) {
+      query.roles = { $in: roleValues };
+    }
+
     if (search) {
       query.$or = [
         { username: { $regex: search, $options: "i" } },
@@ -317,6 +360,119 @@ exports.profile = async (req, res) => {
     res.json(User.sanitize(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Wallet / balance
+exports.getWallet = async (req, res) => {
+  try {
+    await ensureBalanceField(req.userId);
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ success: true, data: { balance: Number(user.balance || 0) } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.topupWallet = async (req, res) => {
+  try {
+    const amount = roundMoney(req.body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "amount must be a positive number" });
+    }
+
+    await ensureBalanceField(req.userId);
+
+    const updated = await User.findOneAndUpdate(
+      { _id: req.userId },
+      { $inc: { balance: amount } },
+      { new: true },
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    await BalanceTransaction.create({
+      userId: updated._id,
+      createdByUserId: updated._id,
+      type: BalanceTransaction.Types.TOPUP,
+      amount,
+      balanceAfter: Number(updated.balance || 0),
+      note: req.body.note,
+    });
+
+    res.json({
+      success: true,
+      message: "Balance topped up successfully.",
+      data: { balance: Number(updated.balance || 0) },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.adjustUserBalance = async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    if (!mongoose.isValidObjectId(targetUserId)) {
+      return res.status(400).json({ success: false, message: "id is invalid" });
+    }
+
+    const amount = roundMoney(req.body.amount);
+    if (!Number.isFinite(amount) || amount === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "amount must be a non-zero number" });
+    }
+
+    await ensureBalanceField(targetUserId);
+
+    const query = { _id: targetUserId };
+    if (amount < 0) {
+      query.balance = { $gte: Math.abs(amount) };
+    }
+
+    const updated = await User.findOneAndUpdate(
+      query,
+      { $inc: { balance: amount } },
+      { new: true },
+    );
+
+    if (!updated) {
+      const exists = await User.exists({ _id: targetUserId });
+      if (!exists) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance for this adjustment.",
+      });
+    }
+
+    await BalanceTransaction.create({
+      userId: updated._id,
+      createdByUserId: req.userId,
+      type: BalanceTransaction.Types.ADMIN_ADJUST,
+      amount,
+      balanceAfter: Number(updated.balance || 0),
+      note: req.body.note,
+    });
+
+    res.json({
+      success: true,
+      message: "Balance adjusted successfully.",
+      data: { balance: Number(updated.balance || 0) },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

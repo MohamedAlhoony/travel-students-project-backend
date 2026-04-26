@@ -8,7 +8,17 @@ const app = express();
 const { ensureSeedData } = require("./startup/seed");
 
 // Enable CORS for all origins
-app.use(cors());
+// Note: When `credentials: true`, CORS cannot use a literal `*` origin.
+// Using `origin: true` reflects the request origin and effectively allows all.
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+app.options("*", cors());
 app.use(express.json());
 
 // Logger
@@ -37,6 +47,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/roles", require("./routes/roles"));
 app.use("/api/users", require("./routes/users"));
+app.use("/api/admin", require("./routes/admin"));
 app.use("/api/applications", require("./routes/providerApplications"));
 app.use("/api/services", require("./routes/services"));
 app.use("/api/bookings", require("./routes/bookings"));

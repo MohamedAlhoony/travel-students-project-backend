@@ -9,6 +9,8 @@ const {
   userLoginValidation,
   customerRegisterValidation,
   passwordResetValidation,
+  walletTopupValidation,
+  walletAdjustValidation,
   validate,
 } = require("../middleware/validation");
 
@@ -29,6 +31,25 @@ router.post(
   userController.create,
 );
 router.get("/profile", auth, userController.profile);
+
+// Wallet / balance
+router.get("/wallet", auth, userController.getWallet);
+router.post(
+  "/wallet/topup",
+  auth,
+  requireRole(Roles.CUSTOMER),
+  walletTopupValidation,
+  validate,
+  userController.topupWallet,
+);
+router.post(
+  "/:id/balance/adjust",
+  auth,
+  requireRole(Roles.ADMIN),
+  walletAdjustValidation,
+  validate,
+  userController.adjustUserBalance,
+);
 router.get(
   "/clients",
   auth,

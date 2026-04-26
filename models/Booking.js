@@ -23,12 +23,6 @@ const bookingSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    applicationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ProviderApplication",
-      required: true,
-      index: true,
-    },
     serviceType: {
       type: String,
       required: true,
@@ -45,6 +39,23 @@ const bookingSchema = new mongoose.Schema(
     bookingData: {
       type: mongoose.Schema.Types.Mixed,
       required: true,
+    },
+
+    // Optional pricing info to support wallet/balance payments.
+    amount: {
+      type: Number,
+      min: 0,
+    },
+    payment: {
+      method: {
+        type: String,
+        enum: ["none", "balance"],
+        default: "none",
+        index: true,
+      },
+      debitedAt: Date,
+      refundedAt: Date,
+      payoutAt: Date,
     },
     providerDecision: {
       decidedAt: Date,
