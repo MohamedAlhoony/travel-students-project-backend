@@ -109,6 +109,22 @@ const clientApplicationRegisterValidation = [
     .withMessage("submittedData must be an object"),
 ];
 
+// Client (authenticated): create a new provider application under the same account
+const clientApplicationCreateValidation = [
+  body("serviceType")
+    .isString()
+    .trim()
+    .custom((value) =>
+      SERVICE_TYPE_VALUES.includes(String(value).toLowerCase()),
+    )
+    .withMessage(
+      `serviceType must be one of: ${SERVICE_TYPE_VALUES.join(", ")}`,
+    ),
+  body("submittedData")
+    .isObject()
+    .withMessage("submittedData must be an object"),
+];
+
 const applicationDecisionValidation = [
   body("note")
     .optional()
@@ -207,6 +223,7 @@ module.exports = {
   passwordResetValidation,
   roleValidation,
   clientApplicationRegisterValidation,
+  clientApplicationCreateValidation,
   applicationDecisionValidation,
   bookingCreateValidation,
   bookingStatusUpdateValidation,

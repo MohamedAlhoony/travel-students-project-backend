@@ -7,6 +7,7 @@ const requireRole = require("../middleware/requireRole");
 const { Roles } = require("../constants/roles");
 const {
   clientApplicationRegisterValidation,
+  clientApplicationCreateValidation,
   applicationDecisionValidation,
   validate,
 } = require("../middleware/validation");
@@ -17,6 +18,16 @@ router.post(
   clientApplicationRegisterValidation,
   validate,
   controller.registerClientApplication,
+);
+
+// Client: submit a new application under the same account
+router.post(
+  "/",
+  auth,
+  requireRole(Roles.CLIENT),
+  clientApplicationCreateValidation,
+  validate,
+  controller.createMyApplication,
 );
 
 // Client: view own applications

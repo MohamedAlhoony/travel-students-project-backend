@@ -1,4 +1,5 @@
 const ProviderApplication = require("../models/ProviderApplication");
+const mongoose = require("mongoose");
 
 exports.listApprovedServices = async (req, res) => {
   try {
@@ -79,6 +80,66 @@ exports.listApprovedServices = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to list services.",
+      error: err.message,
+    });
+  }
+};
+
+exports.getApprovedServiceById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid id" });
+    }
+
+    const pipeline = [
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(id),
+          status: ProviderApplication.Statuses.APPROVED,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "applicantUserId",
+          foreignField: "_id",
+          as: "provider",
+        },
+      },
+      { $unwind: "$provider" },
+      { $match: { "provider.activated": true } },
+      {
+        $project: {
+          applicantUserId: "$provider",
+          serviceType: 1,
+          status: 1,
+          submittedData: 1,
+          adminDecision: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+      {
+        $addFields: {
+          "applicantUserId.passwordHash": "$$REMOVE",
+        },
+      },
+    ];
+
+    const result = await ProviderApplication.aggregate(pipeline);
+    const service = result && result[0];
+    if (!service) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Service not found" });
+    }
+
+    res.json({ success: true, data: service });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch service.",
       error: err.message,
     });
   }

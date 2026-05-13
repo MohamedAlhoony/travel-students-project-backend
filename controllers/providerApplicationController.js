@@ -183,13 +183,45 @@ exports.registerClientApplication = async (req, res) => {
       },
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to submit application.",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit application.",
+      error: err.message,
+    });
+  }
+};
+
+// Client (authenticated): submit a new provider application under the same account
+exports.createMyApplication = async (req, res) => {
+  try {
+    const serviceType = normalizeLower(req.body.serviceType);
+    const submittedData = req.body.submittedData;
+
+    const validation = validateSubmittedData(serviceType, submittedData);
+    if (!validation.ok) {
+      return res
+        .status(400)
+        .json({ success: false, message: validation.message });
+    }
+
+    const application = await ProviderApplication.create({
+      applicantUserId: req.userId,
+      serviceType,
+      status: ProviderApplication.Statuses.PENDING,
+      submittedData,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Application submitted. Await admin approval.",
+      data: application,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit application.",
+      error: err.message,
+    });
   }
 };
 
@@ -201,13 +233,11 @@ exports.getMyApplications = async (req, res) => {
     }).sort({ createdAt: -1 });
     res.json({ success: true, data: apps });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to fetch applications.",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch applications.",
+      error: err.message,
+    });
   }
 };
 
@@ -238,13 +268,11 @@ exports.listApplications = async (req, res) => {
       },
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to list applications.",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to list applications.",
+      error: err.message,
+    });
   }
 };
 
@@ -260,13 +288,11 @@ exports.getApplicationById = async (req, res) => {
         .json({ success: false, message: "Application not found" });
     res.json({ success: true, data: app });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to fetch application.",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch application.",
+      error: err.message,
+    });
   }
 };
 
@@ -281,12 +307,10 @@ async function decide(req, res, status) {
         .json({ success: false, message: "Application not found" });
 
     if (app.status !== ProviderApplication.Statuses.PENDING) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Only pending applications can be decided.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Only pending applications can be decided.",
+      });
     }
 
     app.status = status;
@@ -303,13 +327,11 @@ async function decide(req, res, status) {
 
     res.json({ success: true, message: `Application ${status}.`, data: app });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to update application.",
-        error: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update application.",
+      error: err.message,
+    });
   }
 }
 
