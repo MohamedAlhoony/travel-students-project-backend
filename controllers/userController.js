@@ -4,10 +4,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const BalanceTransaction = require("../models/BalanceTransaction");
 const { Roles } = require("../constants/roles");
-import {
-  sendPushNotification,
-  getAllTokens,
-} from "../services/notificationService.js";
+const { sendPushNotification } = require("../services/notificationService");
 function roundMoney(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return NaN;

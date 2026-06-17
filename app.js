@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
-var admin = require("firebase-admin");
+const admin = require("firebase-admin");
 const app = express();
 
 const { ensureSeedData } = require("./startup/seed");
@@ -30,17 +30,56 @@ if (!process.env.MONGO_URI) {
   console.warn("MONGO_URI is not set; API will not be able to access MongoDB.");
 }
 
-var serviceAccount = require("./firebase-service-account.json");
+// Fixed Firebase Admin SDK initialization
+try {
+  // Option 1: Using service account key file (recommended)
+  // Make sure you have the service account key file in your project
+  const serviceAccount = require("./firebase-service-account.json");
 
-admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: "viaplex-62ec3",
-    clientEmail: "101405265864261272823",
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  }),
-});
-const db = admin.firestore();
-const messaging = admin.messaging();
+  admin.initializeApp({
+    credential: admin.cert({
+      clientEmail: serviceAccount.client_email,
+      privateKey: serviceAccount.private_key,
+      projectId: serviceAccount.project_id,
+    }),
+  });
+
+  console.log("Firebase Admin SDK initialized successfully");
+} catch (error) {
+  console.warn(
+    "Failed to initialize Firebase Admin SDK with service account file:",
+    error.message,
+  );
+
+  // Option 2: Using environment variables (fallback)
+  try {
+    const serviceAccount = {
+      type: "service_account",
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      clientId: process.env.FIREBASE_CLIENT_ID,
+      authUri: "https://accounts.google.com/o/oauth2/auth",
+      tokenUri: "https://oauth2.googleapis.com/token",
+      authProviderX509CertUrl: "https://www.googleapis.com/oauth2/v1/certs",
+      clientX509CertUrl: process.env.FIREBASE_CLIENT_CERT_URL,
+    };
+
+    const firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+
+    console.log("Firebase Admin SDK initialized with environment variables");
+  } catch (envError) {
+    console.error("Failed to initialize Firebase Admin SDK:", envError.message);
+    // Initialize with default credentials (for Google Cloud environments)
+    const firebaseApp = admin.initializeApp();
+    console.log("Firebase Admin SDK initialized with default credentials");
+  }
+}
+
+// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -69,4 +108,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-export { admin, db, messaging };
+module.exports = { admin };
