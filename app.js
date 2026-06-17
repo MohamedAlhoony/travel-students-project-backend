@@ -3,7 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
-const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const app = express();
 
 const { ensureSeedData } = require("./startup/seed");
@@ -31,52 +32,23 @@ if (!process.env.MONGO_URI) {
 }
 
 // Fixed Firebase Admin SDK initialization
+let db; // Declare db variable in outer scope
+
 try {
   // Option 1: Using service account key file (recommended)
   // Make sure you have the service account key file in your project
   const serviceAccount = require("./firebase-service-account.json");
 
-  admin.initializeApp({
-    credential: admin.cert({
-      clientEmail: serviceAccount.client_email,
-      privateKey: serviceAccount.private_key,
-      projectId: serviceAccount.project_id,
-    }),
+  initializeApp({
+    credential: cert(serviceAccount),
   });
-
+  db = getFirestore(); // Assign to the outer db variable
   console.log("Firebase Admin SDK initialized successfully");
 } catch (error) {
   console.warn(
     "Failed to initialize Firebase Admin SDK with service account file:",
     error.message,
   );
-
-  // // Option 2: Using environment variables (fallback)
-  // try {
-  //   const serviceAccount = {
-  //     type: "service_account",
-  //     projectId: process.env.FIREBASE_PROJECT_ID,
-  //     privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID,
-  //     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  //     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  //     clientId: process.env.FIREBASE_CLIENT_ID,
-  //     authUri: "https://accounts.google.com/o/oauth2/auth",
-  //     tokenUri: "https://oauth2.googleapis.com/token",
-  //     authProviderX509CertUrl: "https://www.googleapis.com/oauth2/v1/certs",
-  //     clientX509CertUrl: process.env.FIREBASE_CLIENT_CERT_URL,
-  //   };
-
-  //   const firebaseApp = admin.initializeApp({
-  //     credential: admin.credential.cert(serviceAccount),
-  //   });
-
-  //   console.log("Firebase Admin SDK initialized with environment variables");
-  // } catch (envError) {
-  //   console.error("Failed to initialize Firebase Admin SDK:", envError.message);
-  //   // Initialize with default credentials (for Google Cloud environments)
-  //   const firebaseApp = admin.initializeApp();
-  //   console.log("Firebase Admin SDK initialized with default credentials");
-  // }
 }
 
 // MongoDB connection
@@ -108,4 +80,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = { admin };
+module.exports = { db };
