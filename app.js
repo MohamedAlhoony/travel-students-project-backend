@@ -36,7 +36,7 @@ admin.initializeApp({
   credential: admin.credential.cert({
     projectId: "viaplex-62ec3",
     clientEmail: "101405265864261272823",
-    privateKey: "a",
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
   }),
 });
 const db = admin.firestore();
