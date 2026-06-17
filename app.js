@@ -51,32 +51,32 @@ try {
     error.message,
   );
 
-  // Option 2: Using environment variables (fallback)
-  try {
-    const serviceAccount = {
-      type: "service_account",
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      clientId: process.env.FIREBASE_CLIENT_ID,
-      authUri: "https://accounts.google.com/o/oauth2/auth",
-      tokenUri: "https://oauth2.googleapis.com/token",
-      authProviderX509CertUrl: "https://www.googleapis.com/oauth2/v1/certs",
-      clientX509CertUrl: process.env.FIREBASE_CLIENT_CERT_URL,
-    };
+  // // Option 2: Using environment variables (fallback)
+  // try {
+  //   const serviceAccount = {
+  //     type: "service_account",
+  //     projectId: process.env.FIREBASE_PROJECT_ID,
+  //     privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID,
+  //     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  //     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  //     clientId: process.env.FIREBASE_CLIENT_ID,
+  //     authUri: "https://accounts.google.com/o/oauth2/auth",
+  //     tokenUri: "https://oauth2.googleapis.com/token",
+  //     authProviderX509CertUrl: "https://www.googleapis.com/oauth2/v1/certs",
+  //     clientX509CertUrl: process.env.FIREBASE_CLIENT_CERT_URL,
+  //   };
 
-    const firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+  //   const firebaseApp = admin.initializeApp({
+  //     credential: admin.credential.cert(serviceAccount),
+  //   });
 
-    console.log("Firebase Admin SDK initialized with environment variables");
-  } catch (envError) {
-    console.error("Failed to initialize Firebase Admin SDK:", envError.message);
-    // Initialize with default credentials (for Google Cloud environments)
-    const firebaseApp = admin.initializeApp();
-    console.log("Firebase Admin SDK initialized with default credentials");
-  }
+  //   console.log("Firebase Admin SDK initialized with environment variables");
+  // } catch (envError) {
+  //   console.error("Failed to initialize Firebase Admin SDK:", envError.message);
+  //   // Initialize with default credentials (for Google Cloud environments)
+  //   const firebaseApp = admin.initializeApp();
+  //   console.log("Firebase Admin SDK initialized with default credentials");
+  // }
 }
 
 // MongoDB connection
