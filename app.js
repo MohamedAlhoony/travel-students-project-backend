@@ -1,97 +1,97 @@
-// require("dotenv").config();
-// const express = require("express");
-// const cors = require("cors");
-// const mongoose = require("mongoose");
-// const morgan = require("morgan");
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const morgan = require("morgan");
 
-// const app = express();
-// const { ensureSeedData } = require("./startup/seed");
+const app = express();
+const { ensureSeedData } = require("./startup/seed");
 
-// // ─── MIDDLEWARE ───────────────────────────────────────
-// app.use(
-//   cors({
-//     origin: true,
-//     credentials: true,
-//     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//   }),
-// );
-// app.options("*", cors());
-// app.use(express.json());
-// app.use(morgan("combined"));
+// ─── MIDDLEWARE ───────────────────────────────────────
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+app.options("*", cors());
+app.use(express.json());
+app.use(morgan("combined"));
 
-// // ─── FIREBASE BOOT + TEST ─────────────────────────────
-// require("./firebase");
+// ─── FIREBASE BOOT + TEST ─────────────────────────────
+require("./firebase");
 
-// async function testFirestore() {
-//   try {
-//     const { getDb } = require("./firebase");
-//     const db = getDb();
+async function testFirestore() {
+  try {
+    const { getDb } = require("./firebase");
+    const db = getDb();
 
-//     console.log("🔍 Testing Firestore — reading fcmTokens...");
+    console.log("🔍 Testing Firestore — reading fcmTokens...");
 
-//     const snapshot = await db.collection("fcmTokens").get();
+    const snapshot = await db.collection("fcmTokens").get();
 
-//     if (snapshot.empty) {
-//       console.warn("⚠️  fcmTokens collection is empty or does not exist.");
-//       return;
-//     }
+    if (snapshot.empty) {
+      console.warn("⚠️  fcmTokens collection is empty or does not exist.");
+      return;
+    }
 
-//     console.log(`✅ fcmTokens fetched — total docs: ${snapshot.size}`);
-//     console.log("─────────────────────────────────────");
+    console.log(`✅ fcmTokens fetched — total docs: ${snapshot.size}`);
+    console.log("─────────────────────────────────────");
 
-//     snapshot.docs.forEach((doc, index) => {
-//       const data = doc.data();
-//       console.log(`[${index + 1}] Document ID: ${doc.id}`);
-//       Object.entries(data).forEach(([key, value]) => {
-//         console.log(`     ${key}: ${value}`);
-//       });
-//       console.log("─────────────────────────────────────");
-//     });
-//   } catch (err) {
-//     console.error("❌ Firestore test failed:", err.message);
-//   }
-// }
+    snapshot.docs.forEach((doc, index) => {
+      const data = doc.data();
+      console.log(`[${index + 1}] Document ID: ${doc.id}`);
+      Object.entries(data).forEach(([key, value]) => {
+        console.log(`     ${key}: ${value}`);
+      });
+      console.log("─────────────────────────────────────");
+    });
+  } catch (err) {
+    console.error("❌ Firestore test failed:", err.message);
+  }
+}
 
-// testFirestore();
+testFirestore();
 
-// // ─── MONGODB ──────────────────────────────────────────
-// if (!process.env.MONGO_URI) {
-//   console.warn("⚠️  MONGO_URI is not set.");
-// }
+// ─── MONGODB ──────────────────────────────────────────
+if (!process.env.MONGO_URI) {
+  console.warn("⚠️  MONGO_URI is not set.");
+}
 
-// mongoose
-//   .connect(process.env.MONGO_URI, {
-//     useNewUrlParser: true,
-//     useUnifiedTopology: true,
-//   })
-//   .then(async () => {
-//     console.log("✅ MongoDB connected");
-//     await ensureSeedData();
-//   })
-//   .catch((err) => console.error("❌ MongoDB connection error:", err));
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(async () => {
+    console.log("✅ MongoDB connected");
+    await ensureSeedData();
+  })
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// // ─── BASE ROUTE ───────────────────────────────────────
-// app.get("/", (req, res) => {
-//   res.send("Compliance Registry System API");
-// });
+// ─── BASE ROUTE ───────────────────────────────────────
+app.get("/", (req, res) => {
+  res.send("Compliance Registry System API");
+});
 
-// // ─── ROUTES ───────────────────────────────────────────
-// app.use("/api/roles", require("./routes/roles"));
-// app.use("/api/users", require("./routes/users"));
-// app.use("/api/admin", require("./routes/admin"));
-// app.use("/api/applications", require("./routes/providerApplications"));
-// app.use("/api/services", require("./routes/services"));
-// app.use("/api/bookings", require("./routes/bookings"));
+// ─── ROUTES ───────────────────────────────────────────
+app.use("/api/roles", require("./routes/roles"));
+app.use("/api/users", require("./routes/users"));
+app.use("/api/admin", require("./routes/admin"));
+app.use("/api/applications", require("./routes/providerApplications"));
+app.use("/api/services", require("./routes/services"));
+app.use("/api/bookings", require("./routes/bookings"));
 
-// // ─── GLOBAL ERROR HANDLER ─────────────────────────────
-// app.use((err, req, res, next) => {
-//   console.error("❌ Unhandled error:", err.message);
-//   res.status(500).json({ error: "Internal server error" });
-// });
+// ─── GLOBAL ERROR HANDLER ─────────────────────────────
+app.use((err, req, res, next) => {
+  console.error("❌ Unhandled error:", err.message);
+  res.status(500).json({ error: "Internal server error" });
+});
 
-// // ─── START SERVER ─────────────────────────────────────
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server running on port ${PORT}`);
-// });
+// ─── START SERVER ─────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
