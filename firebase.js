@@ -40,10 +40,10 @@ function initFirebase() {
   try {
     initializeApp({
       credential: cert({
-        // projectId: "viaplex-62ec3",
-        // clientEmail:
-        //   "firebase-adminsdk-fbsvc@viaplex-62ec3.iam.gserviceaccount.com",
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        projectId: "viaplex-62ec3",
+        clientEmail:
+          "firebase-adminsdk-fbsvc@viaplex-62ec3.iam.gserviceaccount.com",
+        // privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
       }),
       //   databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
     });
