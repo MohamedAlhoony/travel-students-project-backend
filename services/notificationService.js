@@ -1,13 +1,13 @@
-import { db } from "../app.js"; // Import the Firestore instance from app.js
+const { db } = require("../app"); // Import the initialized Firebase Admin SDK and Firestore instance
 
 // 1. Get all tokens (reusable everywhere)
-export async function getAllTokens() {
+async function getAllTokens() {
   const snapshot = await db.collection("users").get();
 
   return snapshot.docs.map((doc) => doc.data().expoPushToken).filter(Boolean);
 }
 
-export async function sendPushNotification(title, body, data = {}) {
+async function sendPushNotification(title, body, data = {}) {
   const tokens = await getAllTokens();
 
   const messages = tokens.map((token) => ({
@@ -36,3 +36,5 @@ export async function sendPushNotification(title, body, data = {}) {
 
   return { sent: true, count: tokens.length };
 }
+
+module.exports = { sendPushNotification, getAllTokens };
