@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
+var admin = require("firebase-admin");
 const app = express();
 
 const { ensureSeedData } = require("./startup/seed");
@@ -29,6 +30,13 @@ if (!process.env.MONGO_URI) {
   console.warn("MONGO_URI is not set; API will not be able to access MongoDB.");
 }
 
+var serviceAccount = require("./firebase-service-account.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+const db = admin.firestore();
+const messaging = admin.messaging();
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -56,3 +64,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+export { admin, db, messaging };
