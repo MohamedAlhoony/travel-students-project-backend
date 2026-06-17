@@ -2,9 +2,9 @@ const { db } = require("../app"); // Import the initialized Firebase Admin SDK a
 
 // 1. Get all tokens (reusable everywhere)
 async function getAllTokens() {
-  const snapshot = await db.collection("users").get();
+  const snapshot = await db.collection("fcmTokens").get();
 
-  return snapshot.docs.map((doc) => doc.data().expoPushToken).filter(Boolean);
+  return snapshot.docs.map((doc) => doc.data().token).filter(Boolean);
 }
 
 async function sendPushNotification(title, body, data = {}) {
