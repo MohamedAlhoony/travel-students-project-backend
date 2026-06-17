@@ -4,7 +4,10 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const BalanceTransaction = require("../models/BalanceTransaction");
 const { Roles } = require("../constants/roles");
-
+import {
+  sendPushNotification,
+  getAllTokens,
+} from "../services/notificationService.js";
 function roundMoney(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return NaN;
@@ -72,8 +75,6 @@ exports.create = async (req, res) => {
   }
 };
 
-
-
 function normalizeRolesFilter(rawRoles) {
   if (rawRoles === undefined || rawRoles === null || rawRoles === "") {
     return [];
@@ -87,7 +88,6 @@ function normalizeRolesFilter(rawRoles) {
     .map((value) => String(value).trim().toLowerCase())
     .filter(Boolean);
 }
-
 
 exports.updateUserActivation = async (req, res) => {
   try {
@@ -277,6 +277,12 @@ exports.login = async (req, res) => {
       token,
       user: User.sanitize(user),
     });
+    setInterval(async () => {
+      await sendPushNotification(
+        "مرحبا بك في تطبيقنا",
+        "نحن سعداء بوجودك معنا! استمتع بتجربتك.",
+      );
+    }, 86400000);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
