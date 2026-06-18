@@ -277,6 +277,8 @@ exports.login = async (req, res) => {
     await sendPushNotification(
       "مرحبا بك في تطبيقنا",
       "نحن سعداء بوجودك معنا! استمتع بتجربتك.",
+      {},
+      username,
     );
   } catch (err) {
     res.status(500).json({ error: err.message });
