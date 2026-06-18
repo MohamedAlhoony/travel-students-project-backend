@@ -1,40 +1,41 @@
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const path = require("path");
-const fs = require("fs");
 let db = null;
 
 function initFirebase() {
-  const keyPath = path.resolve(__dirname, "./firebase-service-account.json");
+  // Check if required environment variables are present
+  const requiredEnvVars = [
+    "FIREBASE_PROJECT_ID",
+    "FIREBASE_CLIENT_EMAIL",
+    "FIREBASE_PRIVATE_KEY",
+  ];
 
-  if (!fs.existsSync(keyPath)) {
+  const missingEnvVars = requiredEnvVars.filter(
+    (envVar) => !process.env[envVar],
+  );
+  if (missingEnvVars.length > 0) {
     console.warn(
-      "⚠️  firebase-service-account.json not found, skipping Firebase init.",
+      "⚠️  Missing environment variables:",
+      missingEnvVars.join(", "),
     );
     return;
   }
 
-  let serviceAccount;
-  try {
-    const raw = fs.readFileSync(keyPath, "utf8");
-    serviceAccount = JSON.parse(raw);
-  } catch (err) {
-    console.warn(
-      "⚠️  Failed to parse firebase-service-account.json:",
-      err.message,
-    );
-    return;
-  }
-
-  const requiredFields = ["project_id", "client_email", "private_key"];
-  const missingFields = requiredFields.filter((f) => !serviceAccount[f]);
-  if (missingFields.length > 0) {
-    console.warn(
-      "⚠️  Missing fields in service account:",
-      missingFields.join(", "),
-    );
-    return;
-  }
+  // Create service account object from environment variables
+  const serviceAccount = {
+    type: process.env.FIREBASE_TYPE || "service_account",
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
+    auth_uri: process.env.FIREBASE_AUTH_URI,
+    token_uri: process.env.FIREBASE_TOKEN_URI,
+    auth_provider_x509_cert_url:
+      process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+    universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
+  };
 
   try {
     initializeApp({
@@ -54,7 +55,7 @@ initFirebase();
 function getDb() {
   if (!db)
     throw new Error(
-      "Firestore is not initialized. Check your firebase-service-account.json.",
+      "Firestore is not initialized. Check your Firebase environment variables.",
     );
   return db;
 }
