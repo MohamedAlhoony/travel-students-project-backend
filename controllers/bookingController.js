@@ -4,6 +4,7 @@ const ProviderApplication = require("../models/ProviderApplication");
 const User = require("../models/User");
 const BalanceTransaction = require("../models/BalanceTransaction");
 const { ServiceTypes } = require("../constants/serviceTypes");
+const { sendPushNotification } = require("../services/notificationService");
 
 function roundMoney(value) {
   const n = Number(value);
@@ -136,10 +137,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const validation = validateBookingData(
-      serviceType,
-      req.body.bookingData,
-    );
+    const validation = validateBookingData(serviceType, req.body.bookingData);
     if (!validation.ok) {
       return res
         .status(400)
@@ -213,7 +211,12 @@ exports.create = async (req, res) => {
         }
         throw err;
       }
-
+      sendPushNotification(
+        "تم استلام طلب حجز جديد",
+        "لديك طلب حجز جديد من عميل.",
+        {},
+        provider.username,
+      );
       return res.status(201).json({
         success: true,
         message: "Booking request submitted.",
@@ -421,6 +424,18 @@ exports.updateStatus = async (req, res) => {
         booking.status = nextStatus;
         booking.providerDecision = { decidedAt: new Date(), note };
         await booking.save();
+        const customer = await User.findById(booking.customerUserId);
+        if (customer) {
+          const title =
+            nextStatus === Booking.Statuses.ACCEPTED
+              ? "تم قبول طلب حجزك"
+              : "تم رفض طلب حجزك";
+          const body =
+            nextStatus === Booking.Statuses.ACCEPTED
+              ? "مقدم الخدمة قد قبل طلب حجزك."
+              : "مقدم الخدمة قد رفض طلب حجزك.";
+          await sendPushNotification(title, body, {}, customer.username);
+        }
 
         if (nextStatus === Booking.Statuses.REJECTED) {
           await refundIfNeeded();

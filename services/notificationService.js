@@ -26,12 +26,32 @@ function chunkArray(array, size) {
 }
 
 // ─── SEND PUSH NOTIFICATION ───────────────────────────
-async function sendPushNotification(title, body, data = {}) {
+async function sendPushNotification(title, body, data = {}, email = null) {
   if (!title || !body) {
     throw new Error("title and body are required.");
   }
 
-  const tokens = await getAllTokens();
+  let tokens = [];
+
+  if (email) {
+    // Get tokens for specific email
+    const db = getDb();
+    const snapshot = await db
+      .collection("fcmTokens")
+      .where("email", "==", email)
+      .get();
+
+    if (snapshot.empty) {
+      console.warn(`⚠️  No tokens found for email: ${email}`);
+      return { sent: false, count: 0, results: [] };
+    }
+
+    tokens = snapshot.docs.map((doc) => doc.data().token).filter(Boolean);
+    console.log(`📱 Found ${tokens.length} token(s) for email: ${email}`);
+  } else {
+    // Get all tokens
+    tokens = await getAllTokens();
+  }
 
   if (tokens.length === 0) {
     console.warn("⚠️  No tokens to send to.");
