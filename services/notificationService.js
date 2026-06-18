@@ -9,7 +9,6 @@ async function getAllTokens() {
     console.warn("⚠️  No FCM tokens found in Firestore.");
     return [];
   }
-
   const tokens = snapshot.docs.map((doc) => doc.data().token).filter(Boolean);
 
   console.log(`📱 Found ${tokens.length} FCM token(s)`);

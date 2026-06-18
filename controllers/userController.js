@@ -274,12 +274,10 @@ exports.login = async (req, res) => {
       token,
       user: User.sanitize(user),
     });
-    setInterval(async () => {
-      await sendPushNotification(
-        "مرحبا بك في تطبيقنا",
-        "نحن سعداء بوجودك معنا! استمتع بتجربتك.",
-      );
-    }, 86400000);
+    await sendPushNotification(
+      "مرحبا بك في تطبيقنا",
+      "نحن سعداء بوجودك معنا! استمتع بتجربتك.",
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
