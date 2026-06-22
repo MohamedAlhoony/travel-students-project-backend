@@ -56,6 +56,15 @@ router.get(
   requireRole(Roles.ADMIN),
   userController.listClients,
 );
+
+// Customer: review a service provider
+router.post(
+  "/review-provider",
+  auth,
+  requireRole(Roles.CUSTOMER),
+  userController.reviewProvider,
+);
+
 router.get("/", auth, requireRole(Roles.ADMIN), userController.getAll);
 router.get("/:id", auth, userController.getById);
 router.put("/:id", auth, userController.update);

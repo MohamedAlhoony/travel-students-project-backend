@@ -26,9 +26,28 @@ async function ensureSeedData() {
   // Remove roles that are no longer part of the enum (e.g. old 'user')
   await Role.deleteMany({ name: { $nin: ROLE_VALUES } });
 
-  const adminUsername = process.env.ADMIN_USERNAME || "admin";
-  const adminPassword = process.env.ADMIN_PASSWORD || "admin12345";
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
+  // ── Wipe all previous providers and customers ────────────────────────────────
+  const oldProviderAndCustomerUsers = await User.find({
+    roles: { $in: [Roles.PROVIDER, Roles.CLIENT, Roles.CUSTOMER] },
+  }).select("_id");
+  const oldUserIds = oldProviderAndCustomerUsers.map((u) => u._id);
+
+  if (oldUserIds.length) {
+    await Booking.deleteMany({
+      $or: [
+        { customerUserId: { $in: oldUserIds } },
+        { providerUserId: { $in: oldUserIds } },
+      ],
+    });
+    await ProviderApplication.deleteMany({
+      applicantUserId: { $in: oldUserIds },
+    });
+    await BalanceTransaction.deleteMany({
+      userId: { $in: oldUserIds },
+    });
+    await User.deleteMany({ _id: { $in: oldUserIds } });
+    console.log(`Removed ${oldUserIds.length} old provider/customer user(s) and their related data.`);
+  }
 
   async function seedUser({
     username,
@@ -68,94 +87,84 @@ async function ensureSeedData() {
     return { created: true, user: created };
   }
 
-  // Admin
+  // ── Admin ────────────────────────────────────────────────────────────────────
   const adminSeed = await seedUser({
-    username: adminUsername,
-    password: adminPassword,
-    email: adminEmail,
+    username: "admin",
+    password: "admin12345",
+    email: "admin@example.com",
     roles: [Roles.ADMIN],
     balance: 0,
     activated: true,
   });
 
-  // Test users (override defaults via env vars if needed)
-  const testPassword = process.env.SEED_TEST_PASSWORD || "test12345";
+  const testPassword = "test12345";
 
-  const client1Seed = await seedUser({
-    username: process.env.SEED_CLIENT1_USERNAME || "ahmad.almasri",
-    password: process.env.SEED_CLIENT1_PASSWORD || testPassword,
-    email: process.env.SEED_CLIENT1_EMAIL || "ahmad.almasri@example.com",
-    roles: [Roles.CLIENT],
-    balance: Number(process.env.SEED_CLIENT1_BALANCE || 120),
+  // ── 2 Driver Providers ───────────────────────────────────────────────────────
+  const provider_driver_1_Seed = await seedUser({
+    username: "khalid.almasri",
+    password: testPassword,
+    email: "khalid.almasri@example.com",
+    roles: [Roles.PROVIDER],
+    balance: 320,
     activated: true,
   });
 
-  const client2Seed = await seedUser({
-    username: process.env.SEED_CLIENT2_USERNAME || "salim.alwerfalli",
-    password: process.env.SEED_CLIENT2_PASSWORD || testPassword,
-    email: process.env.SEED_CLIENT2_EMAIL || "salim.alwerfalli@example.com",
-    roles: [Roles.CLIENT],
-    balance: Number(process.env.SEED_CLIENT2_BALANCE || 45),
+  const provider_driver_2_Seed = await seedUser({
+    username: "omar.alwerfalli",
+    password: testPassword,
+    email: "omar.alwerfalli@example.com",
+    roles: [Roles.PROVIDER],
+    balance: 180,
     activated: true,
   });
 
-  const client3Seed = await seedUser({
-    username: process.env.SEED_CLIENT3_USERNAME || "yousef.alfarsi",
-    password: process.env.SEED_CLIENT3_PASSWORD || testPassword,
-    email: process.env.SEED_CLIENT3_EMAIL || "yousef.alfarsi@example.com",
-    roles: [Roles.CLIENT],
-    balance: Number(process.env.SEED_CLIENT3_BALANCE || 0),
+  // ── 2 Property Owner Providers ───────────────────────────────────────────────
+  const provider_property_1_Seed = await seedUser({
+    username: "fatima.alzahra",
+    password: testPassword,
+    email: "fatima.alzahra@example.com",
+    roles: [Roles.PROVIDER],
+    balance: 540,
+    activated: true,
+  });
+
+  const provider_property_2_Seed = await seedUser({
+    username: "maryam.bensalem",
+    password: testPassword,
+    email: "maryam.bensalem@example.com",
+    roles: [Roles.PROVIDER],
+    balance: 275,
+    activated: true,
+  });
+
+  // ── 2 Tourist Services Providers ─────────────────────────────────────────────
+  const provider_tourism_1_Seed = await seedUser({
+    username: "yusuf.alfarsi",
+    password: testPassword,
+    email: "yusuf.alfarsi@example.com",
+    roles: [Roles.PROVIDER],
+    balance: 410,
+    activated: true,
+  });
+
+  const provider_tourism_2_Seed = await seedUser({
+    username: "salim.alqadi",
+    password: testPassword,
+    email: "salim.alqadi@example.com",
+    roles: [Roles.PROVIDER],
+    balance: 90,
     activated: false,
   });
 
-  const customer1Seed = await seedUser({
-    username: process.env.SEED_CUSTOMER1_USERNAME || "fatima.alzahra",
-    password: process.env.SEED_CUSTOMER1_PASSWORD || testPassword,
-    email: process.env.SEED_CUSTOMER1_EMAIL || "fatima.alzahra@example.com",
-    roles: [Roles.CUSTOMER],
-    balance: Number(process.env.SEED_CUSTOMER1_BALANCE || 250),
-    activated: true,
-  });
+  const adminUser            = adminSeed.user;
+  const providerDriver1      = provider_driver_1_Seed.user;
+  const providerDriver2      = provider_driver_2_Seed.user;
+  const providerProperty1    = provider_property_1_Seed.user;
+  const providerProperty2    = provider_property_2_Seed.user;
+  const providerTourism1     = provider_tourism_1_Seed.user;
+  const providerTourism2     = provider_tourism_2_Seed.user;
 
-  const customer2Seed = await seedUser({
-    username: process.env.SEED_CUSTOMER2_USERNAME || "omar.alsharif",
-    password: process.env.SEED_CUSTOMER2_PASSWORD || testPassword,
-    email: process.env.SEED_CUSTOMER2_EMAIL || "omar.alsharif@example.com",
-    roles: [Roles.CUSTOMER],
-    balance: Number(process.env.SEED_CUSTOMER2_BALANCE || 100),
-    activated: true,
-  });
-
-  const customer3Seed = await seedUser({
-    username: process.env.SEED_CUSTOMER3_USERNAME || "khadija.benali",
-    password: process.env.SEED_CUSTOMER3_PASSWORD || testPassword,
-    email: process.env.SEED_CUSTOMER3_EMAIL || "khadija.benali@example.com",
-    roles: [Roles.CUSTOMER],
-    balance: Number(process.env.SEED_CUSTOMER3_BALANCE || 410),
-    activated: true,
-  });
-
-  const customer4Seed = await seedUser({
-    username: process.env.SEED_CUSTOMER4_USERNAME || "mohamed.alqadi",
-    password: process.env.SEED_CUSTOMER4_PASSWORD || testPassword,
-    email: process.env.SEED_CUSTOMER4_EMAIL || "mohamed.alqadi@example.com",
-    roles: [Roles.CUSTOMER],
-    balance: Number(process.env.SEED_CUSTOMER4_BALANCE || 60),
-    activated: false,
-  });
-
-  const adminUser = adminSeed.user;
-  const client1 = client1Seed.user;
-  const client2 = client2Seed.user;
-  const client3 = client3Seed.user;
-  const customer1 = customer1Seed.user;
-  const customer2 = customer2Seed.user;
-  const customer3 = customer3Seed.user;
-  const customer4 = customer4Seed.user;
-
-  const shouldSeedDemoData =
-    String(process.env.SEED_ADMIN_DEMO_DATA || "true").toLowerCase() !==
-    "false";
+  const shouldSeedDemoData = true;
   if (!shouldSeedDemoData) {
     return;
   }
@@ -169,120 +178,143 @@ async function ensureSeedData() {
 
   const now = Date.now();
 
+  // ── Provider Applications (2 per service type = 6 total) ────────────────────
   const appTemplates = [
+    // ── Driver × 2 ────────────────────────────────────────────────────────────
     {
-      key: "app-driver-approved-c1",
-      applicantUserId: client1._id,
+      key: "app-driver-1",
+      applicantUserId: providerDriver1._id,
       serviceType: ServiceTypes.DRIVER,
       status: ProviderApplication.Statuses.APPROVED,
       submittedData: {
         _seedTag: SEED_TAG,
-        _seedKey: "app-driver-approved-c1",
-        fullName: "أحمد المصري",
-        licenseNumber: "DRV-2211",
+        fullName: "خالد أحمد المصري",
+        licenseNumber: "DRV-1001",
         vehicleType: "سيارة سيدان",
+        vehicleModel: "تويوتا كامري 2021",
         seats: 4,
-        serviceAreas: ["طرابلس", "الزاوية"],
+        serviceAreas: ["طرابلس", "الزاوية", "صبراتة"],
         pricingModel: "لكل كيلومتر",
-      },
-    },
-    {
-      key: "app-property-approved-c2",
-      applicantUserId: client2._id,
-      serviceType: ServiceTypes.PROPERTY_OWNER,
-      status: ProviderApplication.Statuses.APPROVED,
-      submittedData: {
-        _seedTag: SEED_TAG,
-        _seedKey: "app-property-approved-c2",
-        propertyType: "شقة",
-        city: "طرابلس",
-        addressLine: "حي الأندلس",
-        maxGuests: 5,
-        nightlyPrice: 160,
-        amenities: ["واي فاي", "تكييف", "موقف سيارات"],
-      },
-    },
-    {
-      key: "app-property-approved-c1",
-      applicantUserId: client1._id,
-      serviceType: ServiceTypes.PROPERTY_OWNER,
-      status: ProviderApplication.Statuses.APPROVED,
-      submittedData: {
-        _seedTag: SEED_TAG,
-        _seedKey: "app-property-approved-c1",
-        propertyType: "شاليه",
-        city: "زليتن",
-        addressLine: "قرب البحر",
-        maxGuests: 6,
-        nightlyPrice: 190,
-        amenities: ["واي فاي", "مطبخ", "موقف سيارات"],
-      },
-    },
-    {
-      key: "app-tourism-pending-c3",
-      applicantUserId: client3._id,
-      serviceType: ServiceTypes.TOURIST_SERVICES,
-      status: ProviderApplication.Statuses.PENDING,
-      submittedData: {
-        _seedTag: SEED_TAG,
-        _seedKey: "app-tourism-pending-c3",
-        providerName: "رحلات ليبيا السياحية",
-        languages: ["العربية", "الإنجليزية"],
-        experienceTitle: "جولة المغامرة الصحراوية",
-        durationHours: 8,
-        groupSizeMax: 12,
-        price: 220,
-        locations: ["لبدة الكبرى", "صبراتة"],
-      },
-    },
-    {
-      key: "app-tourism-approved-c1",
-      applicantUserId: client1._id,
-      serviceType: ServiceTypes.TOURIST_SERVICES,
-      status: ProviderApplication.Statuses.APPROVED,
-      submittedData: {
-        _seedTag: SEED_TAG,
-        _seedKey: "app-tourism-approved-c1",
-        providerName: "دليل طرابلس",
+        pricePerKm: 2.5,
         languages: ["العربية"],
-        experienceTitle: "جولة المدينة القديمة",
-        durationHours: 3,
-        groupSizeMax: 10,
-        price: 70,
-        locations: ["المدينة القديمة", "السرايا الحمراء"],
+        yearsOfExperience: 7,
       },
     },
     {
-      key: "app-tourism-approved-c2",
-      applicantUserId: client2._id,
+      key: "app-driver-2",
+      applicantUserId: providerDriver2._id,
+      serviceType: ServiceTypes.DRIVER,
+      status: ProviderApplication.Statuses.APPROVED,
+      submittedData: {
+        _seedTag: SEED_TAG,
+        fullName: "عمر محمود الورفلي",
+        licenseNumber: "DRV-1002",
+        vehicleType: "سيارة دفع رباعي",
+        vehicleModel: "ميتسوبيشي باجيرو 2020",
+        seats: 7,
+        serviceAreas: ["بنغازي", "طبرق", "درنة"],
+        pricingModel: "لكل رحلة",
+        pricePerTrip: 120,
+        languages: ["العربية", "الإنجليزية"],
+        yearsOfExperience: 5,
+      },
+    },
+
+    // ── Property Owner × 2 ────────────────────────────────────────────────────
+    {
+      key: "app-property-1",
+      applicantUserId: providerProperty1._id,
+      serviceType: ServiceTypes.PROPERTY_OWNER,
+      status: ProviderApplication.Statuses.APPROVED,
+      submittedData: {
+        _seedTag: SEED_TAG,
+        ownerName: "فاطمة الزهراء",
+        propertyType: "شقة مفروشة",
+        city: "طرابلس",
+        addressLine: "شارع الحرية، حي السلام، الطابق الثالث",
+        maxGuests: 4,
+        bedrooms: 2,
+        bathrooms: 1,
+        nightlyPrice: 120,
+        amenities: ["واي فاي", "تكييف", "موقف سيارات", "مطبخ مجهز", "تلفزيون"],
+        checkInTime: "14:00",
+        checkOutTime: "12:00",
+        minimumNights: 1,
+      },
+    },
+    {
+      key: "app-property-2",
+      applicantUserId: providerProperty2._id,
+      serviceType: ServiceTypes.PROPERTY_OWNER,
+      status: ProviderApplication.Statuses.APPROVED,
+      submittedData: {
+        _seedTag: SEED_TAG,
+        ownerName: "مريم بن سالم",
+        propertyType: "شاليه ساحلي",
+        city: "زليتن",
+        addressLine: "منطقة الجمال، على بُعد 200 متر من الشاطئ",
+        maxGuests: 8,
+        bedrooms: 3,
+        bathrooms: 2,
+        nightlyPrice: 220,
+        amenities: [
+          "واي فاي",
+          "تكييف",
+          "موقف سيارات",
+          "حمام سباحة",
+          "حديقة خاصة",
+          "مطبخ مجهز",
+          "شواء خارجي",
+        ],
+        checkInTime: "15:00",
+        checkOutTime: "11:00",
+        minimumNights: 2,
+      },
+    },
+
+    // ── Tourist Services × 2 ──────────────────────────────────────────────────
+    {
+      key: "app-tourism-1",
+      applicantUserId: providerTourism1._id,
       serviceType: ServiceTypes.TOURIST_SERVICES,
       status: ProviderApplication.Statuses.APPROVED,
       submittedData: {
         _seedTag: SEED_TAG,
-        _seedKey: "app-tourism-approved-c2",
-        providerName: "بنغازي ترافل",
+        providerName: "يوسف الفارسي للسياحة",
+        companyName: "رحلات طرابلس السياحية",
         languages: ["العربية", "الإنجليزية"],
-        experienceTitle: "يوم في بنغازي",
-        durationHours: 6,
+        experienceTitle: "جولة في المدينة القديمة وقلعة الشط",
+        description:
+          "جولة مميزة تأخذك عبر تاريخ طرابلس العريق من المدينة القديمة وأسواقها الشعبية وصولاً إلى السرايا الحمراء الشامخة.",
+        durationHours: 3,
         groupSizeMax: 15,
-        price: 120,
-        locations: ["كورنيش بنغازي", "وسط المدينة"],
+        price: 60,
+        locations: ["المدينة القديمة", "السرايا الحمراء", "قلعة الشط", "سوق الجمعة"],
+        availableDays: ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء"],
+        includesTransport: true,
+        includesMeals: false,
       },
     },
     {
-      key: "app-driver-rejected-c2",
-      applicantUserId: client2._id,
-      serviceType: ServiceTypes.DRIVER,
-      status: ProviderApplication.Statuses.REJECTED,
+      key: "app-tourism-2",
+      applicantUserId: providerTourism2._id,
+      serviceType: ServiceTypes.TOURIST_SERVICES,
+      status: ProviderApplication.Statuses.APPROVED,
       submittedData: {
         _seedTag: SEED_TAG,
-        _seedKey: "app-driver-rejected-c2",
-        fullName: "سالم الورفلي",
-        licenseNumber: "DRV-9981",
-        vehicleType: "سيارة دفع رباعي",
-        seats: 6,
-        serviceAreas: ["بنغازي"],
-        pricingModel: "لكل رحلة",
+        providerName: "سالم القاضي للسياحة",
+        companyName: "بنغازي للسياحة والتراث",
+        languages: ["العربية", "الفرنسية"],
+        experienceTitle: "رحلة صحراوية مميزة في النفوسة",
+        description:
+          "تجربة استثنائية في أعماق الصحراء الليبية، تشمل ركوب الخيل والإقامة في خيمة تقليدية ومشاهدة النجوم.",
+        durationHours: 8,
+        groupSizeMax: 10,
+        price: 150,
+        locations: ["جبل نفوسة", "قصر الحاج", "غريان"],
+        availableDays: ["الجمعة", "السبت"],
+        includesTransport: true,
+        includesMeals: true,
       },
     },
   ];
@@ -315,141 +347,8 @@ async function ensureSeedData() {
     applicationByKey[tpl.key] = created;
   }
 
-  const bookingTemplates = [
-    {
-      key: "bk-001-requested",
-      customerUserId: customer1._id,
-      providerUserId: client1._id,
-      appKey: "app-driver-approved-c1",
-      status: Booking.Statuses.REQUESTED,
-      amount: 80,
-      paymentMethod: "none",
-      bookingData: {
-        pickupLocation: "قرقارش",
-        dropoffLocation: "مطار معيتيقة",
-        pickupAt: new Date(now + 1000 * 60 * 60 * 6).toISOString(),
-        passengers: 2,
-      },
-    },
-    {
-      key: "bk-002-accepted",
-      customerUserId: customer2._id,
-      providerUserId: client1._id,
-      appKey: "app-driver-approved-c1",
-      status: Booking.Statuses.ACCEPTED,
-      amount: 65,
-      paymentMethod: "balance",
-      bookingData: {
-        pickupLocation: "وسط المدينة",
-        dropoffLocation: "المدينة القديمة",
-        pickupAt: new Date(now + 1000 * 60 * 60 * 2).toISOString(),
-        passengers: 1,
-      },
-      providerDecision: { note: "تم التأكيد، السائق في الطريق" },
-    },
-    {
-      key: "bk-003-completed",
-      customerUserId: customer3._id,
-      providerUserId: client2._id,
-      appKey: "app-property-approved-c2",
-      status: Booking.Statuses.COMPLETED,
-      amount: 300,
-      paymentMethod: "balance",
-      bookingData: {
-        checkIn: new Date(now - 1000 * 60 * 60 * 24 * 8).toISOString(),
-        checkOut: new Date(now - 1000 * 60 * 60 * 24 * 5).toISOString(),
-        guests: 3,
-      },
-      providerDecision: { note: "تم تأكيد الحجز بنجاح" },
-    },
-    {
-      key: "bk-004-rejected",
-      customerUserId: customer4._id,
-      providerUserId: client1._id,
-      appKey: "app-driver-approved-c1",
-      status: Booking.Statuses.REJECTED,
-      amount: 90,
-      paymentMethod: "none",
-      bookingData: {
-        pickupLocation: "حي الأندلس",
-        dropoffLocation: "جنزور",
-        pickupAt: new Date(now + 1000 * 60 * 60 * 12).toISOString(),
-        passengers: 4,
-      },
-      providerDecision: { note: "السيارة غير متاحة حاليًا" },
-    },
-    {
-      key: "bk-005-cancelled",
-      customerUserId: customer1._id,
-      providerUserId: client2._id,
-      appKey: "app-property-approved-c2",
-      status: Booking.Statuses.CANCELLED,
-      amount: 150,
-      paymentMethod: "balance",
-      bookingData: {
-        checkIn: new Date(now + 1000 * 60 * 60 * 24 * 2).toISOString(),
-        checkOut: new Date(now + 1000 * 60 * 60 * 24 * 4).toISOString(),
-        guests: 2,
-      },
-      customerDecision: { note: "تغيير في الخطة" },
-    },
-    {
-      key: "bk-006-requested",
-      customerUserId: customer2._id,
-      providerUserId: client2._id,
-      appKey: "app-property-approved-c2",
-      status: Booking.Statuses.REQUESTED,
-      amount: 220,
-      paymentMethod: "none",
-      bookingData: {
-        checkIn: new Date(now + 1000 * 60 * 60 * 24 * 7).toISOString(),
-        checkOut: new Date(now + 1000 * 60 * 60 * 24 * 10).toISOString(),
-        guests: 4,
-      },
-    },
-    {
-      key: "bk-007-requested-tourism",
-      customerUserId: customer1._id,
-      providerUserId: client1._id,
-      appKey: "app-tourism-approved-c1",
-      status: Booking.Statuses.REQUESTED,
-      amount: 140,
-      paymentMethod: "none",
-      bookingData: {
-        date: new Date(now + 1000 * 60 * 60 * 24 * 3).toISOString(),
-        participants: 2,
-      },
-    },
-    {
-      key: "bk-008-accepted-property",
-      customerUserId: customer3._id,
-      providerUserId: client1._id,
-      appKey: "app-property-approved-c1",
-      status: Booking.Statuses.ACCEPTED,
-      amount: 190,
-      paymentMethod: "balance",
-      bookingData: {
-        checkIn: new Date(now + 1000 * 60 * 60 * 24 * 5).toISOString(),
-        checkOut: new Date(now + 1000 * 60 * 60 * 24 * 6).toISOString(),
-        guests: 2,
-      },
-      providerDecision: { note: "تم تأكيد الحجز" },
-    },
-    {
-      key: "bk-009-completed-tourism",
-      customerUserId: customer2._id,
-      providerUserId: client2._id,
-      appKey: "app-tourism-approved-c2",
-      status: Booking.Statuses.COMPLETED,
-      amount: 360,
-      paymentMethod: "balance",
-      bookingData: {
-        date: new Date(now - 1000 * 60 * 60 * 24 * 2).toISOString(),
-        participants: 3,
-      },
-      providerDecision: { note: "تمت الجولة بنجاح" },
-    },
-  ];
+  // No bookings for this simplified version
+  const bookingTemplates = [];
 
   const seededBookings = [];
   for (const tpl of bookingTemplates) {
@@ -549,7 +448,8 @@ async function ensureSeedData() {
   }
 
   console.log(
-    `تمت إضافة بيانات تجريبية: ${appTemplates.length} طلبات مزودين، ${seededBookings.length} حجوزات.`,
+    `تمت إضافة البيانات التجريبية: ${appTemplates.length} طلبات مزودين` +
+    ` (${appTemplates.length / 3} سائقين، ${appTemplates.length / 3} ملاك عقارات، ${appTemplates.length / 3} مزودي خدمات سياحية).`,
   );
 }
 

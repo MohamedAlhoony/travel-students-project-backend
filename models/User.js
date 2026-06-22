@@ -44,6 +44,50 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    // Review rank for customers (clients)
+    // Rating scale from 1-5, only applicable for customers
+    reviewRank: {
+      type: Number,
+      min: 1,
+      max: 5,
+      validate: {
+        validator: function () {
+          // Only validate reviewRank if user has CUSTOMER role
+          return (
+            !this.roles.includes(Roles.CUSTOMER) ||
+            (this.reviewRank >= 1 && this.reviewRank <= 5)
+          );
+        },
+        message: "Review rank must be between 1 and 5 for customers",
+      },
+    },
+
+    // Additional fields for review tracking
+    reviewCount: {
+      type: Number,
+      default: 0,
+    },
+
+    // Store individual reviews
+    reviews: [
+      {
+        customerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        reviewRank: {
+          type: Number,
+          min: 1,
+          max: 5,
+        },
+        comment: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true },
 );

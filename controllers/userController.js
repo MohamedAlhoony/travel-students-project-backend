@@ -500,3 +500,95 @@ exports.listClients = async (req, res) => {
     });
   }
 };
+
+// Customer: review a service provider
+exports.reviewProvider = async (req, res) => {
+  try {
+    // Check if the current user is a customer
+    const currentUser = await User.findById(req.userId);
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    if (!currentUser.roles.includes(Roles.CUSTOMER)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only customers can review providers.",
+      });
+    }
+
+    const { providerId, reviewRank, comment } = req.body;
+
+    // Validate input
+    if (!providerId || !mongoose.isValidObjectId(providerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid providerId is required.",
+      });
+    }
+
+    if (!reviewRank || reviewRank < 1 || reviewRank > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Review rank must be between 1 and 5.",
+      });
+    }
+
+    // Check if provider exists and has CLIENT role
+    const provider = await User.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({
+        success: false,
+        message: "Provider not found.",
+      });
+    }
+
+    if (!provider.roles.includes(Roles.CLIENT)) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a service provider.",
+      });
+    }
+
+    // Update provider's review rank (simple average calculation)
+    // In a production app, you might want to store individual reviews separately
+    const currentRank = provider.reviewRank || 0;
+    const reviewCount = provider.reviewCount || 0;
+
+    // Calculate new average
+    const newReviewCount = reviewCount + 1;
+    const newRank =
+      reviewCount === 0
+        ? reviewRank
+        : (currentRank * reviewCount + reviewRank) / newReviewCount;
+
+    // Update provider's review information
+    await User.findByIdAndUpdate(providerId, {
+      reviewRank: newRank,
+      reviewCount: newReviewCount,
+      $push: {
+        reviews: {
+          customerId: req.userId,
+          reviewRank,
+          comment,
+          createdAt: new Date(),
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Review submitted successfully.",
+      data: { reviewRank: newRank },
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit review.",
+      error: err.message,
+    });
+  }
+};
