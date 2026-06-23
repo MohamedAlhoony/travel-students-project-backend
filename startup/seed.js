@@ -28,7 +28,7 @@ async function ensureSeedData() {
 
   // ── Wipe all previous providers and customers ────────────────────────────────
   const oldProviderAndCustomerUsers = await User.find({
-    roles: { $in: [Roles.PROVIDER, Roles.CLIENT, Roles.CUSTOMER] },
+    roles: { $in: [Roles.CLIENT, Roles.CLIENT, Roles.CUSTOMER] },
   }).select("_id");
   const oldUserIds = oldProviderAndCustomerUsers.map((u) => u._id);
 
@@ -46,7 +46,9 @@ async function ensureSeedData() {
       userId: { $in: oldUserIds },
     });
     await User.deleteMany({ _id: { $in: oldUserIds } });
-    console.log(`Removed ${oldUserIds.length} old provider/customer user(s) and their related data.`);
+    console.log(
+      `Removed ${oldUserIds.length} old provider/customer user(s) and their related data.`,
+    );
   }
 
   async function seedUser({
@@ -104,7 +106,7 @@ async function ensureSeedData() {
     username: "khalid.almasri",
     password: testPassword,
     email: "khalid.almasri@example.com",
-    roles: [Roles.PROVIDER],
+    roles: [Roles.CLIENT],
     balance: 320,
     activated: true,
   });
@@ -113,7 +115,7 @@ async function ensureSeedData() {
     username: "omar.alwerfalli",
     password: testPassword,
     email: "omar.alwerfalli@example.com",
-    roles: [Roles.PROVIDER],
+    roles: [Roles.CLIENT],
     balance: 180,
     activated: true,
   });
@@ -123,7 +125,7 @@ async function ensureSeedData() {
     username: "fatima.alzahra",
     password: testPassword,
     email: "fatima.alzahra@example.com",
-    roles: [Roles.PROVIDER],
+    roles: [Roles.CLIENT],
     balance: 540,
     activated: true,
   });
@@ -132,7 +134,7 @@ async function ensureSeedData() {
     username: "maryam.bensalem",
     password: testPassword,
     email: "maryam.bensalem@example.com",
-    roles: [Roles.PROVIDER],
+    roles: [Roles.CLIENT],
     balance: 275,
     activated: true,
   });
@@ -142,7 +144,7 @@ async function ensureSeedData() {
     username: "yusuf.alfarsi",
     password: testPassword,
     email: "yusuf.alfarsi@example.com",
-    roles: [Roles.PROVIDER],
+    roles: [Roles.CLIENT],
     balance: 410,
     activated: true,
   });
@@ -151,18 +153,18 @@ async function ensureSeedData() {
     username: "salim.alqadi",
     password: testPassword,
     email: "salim.alqadi@example.com",
-    roles: [Roles.PROVIDER],
+    roles: [Roles.CLIENT],
     balance: 90,
     activated: false,
   });
 
-  const adminUser            = adminSeed.user;
-  const providerDriver1      = provider_driver_1_Seed.user;
-  const providerDriver2      = provider_driver_2_Seed.user;
-  const providerProperty1    = provider_property_1_Seed.user;
-  const providerProperty2    = provider_property_2_Seed.user;
-  const providerTourism1     = provider_tourism_1_Seed.user;
-  const providerTourism2     = provider_tourism_2_Seed.user;
+  const adminUser = adminSeed.user;
+  const providerDriver1 = provider_driver_1_Seed.user;
+  const providerDriver2 = provider_driver_2_Seed.user;
+  const providerProperty1 = provider_property_1_Seed.user;
+  const providerProperty2 = provider_property_2_Seed.user;
+  const providerTourism1 = provider_tourism_1_Seed.user;
+  const providerTourism2 = provider_tourism_2_Seed.user;
 
   const shouldSeedDemoData = true;
   if (!shouldSeedDemoData) {
@@ -289,7 +291,12 @@ async function ensureSeedData() {
         durationHours: 3,
         groupSizeMax: 15,
         price: 60,
-        locations: ["المدينة القديمة", "السرايا الحمراء", "قلعة الشط", "سوق الجمعة"],
+        locations: [
+          "المدينة القديمة",
+          "السرايا الحمراء",
+          "قلعة الشط",
+          "سوق الجمعة",
+        ],
         availableDays: ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء"],
         includesTransport: true,
         includesMeals: false,
@@ -449,7 +456,7 @@ async function ensureSeedData() {
 
   console.log(
     `تمت إضافة البيانات التجريبية: ${appTemplates.length} طلبات مزودين` +
-    ` (${appTemplates.length / 3} سائقين، ${appTemplates.length / 3} ملاك عقارات، ${appTemplates.length / 3} مزودي خدمات سياحية).`,
+      ` (${appTemplates.length / 3} سائقين، ${appTemplates.length / 3} ملاك عقارات، ${appTemplates.length / 3} مزودي خدمات سياحية).`,
   );
 }
 

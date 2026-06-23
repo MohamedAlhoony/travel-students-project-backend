@@ -67,7 +67,7 @@ mongoose
   })
   .then(async () => {
     console.log("✅ MongoDB connected");
-    await ensureSeedData();
+    // await ensureSeedData();
   })
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
