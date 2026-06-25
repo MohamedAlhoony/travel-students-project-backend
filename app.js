@@ -82,7 +82,7 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api/applications", require("./routes/providerApplications"));
 app.use("/api/services", require("./routes/services"));
 app.use("/api/bookings", require("./routes/bookings"));
-app.use("/api/standards", require("./routes/standards"));
+app.use("/api/standards", require("./routes/Standards"));
 
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────
 app.use((err, req, res, next) => {
