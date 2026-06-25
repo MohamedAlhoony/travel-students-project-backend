@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const morgan = require("morgan");
 
 const app = express();
-const { ensureSeedData } = require("./startup/seed");
+const { seedStandards } = require("./startup/seedStandards");
 
 // ─── MIDDLEWARE ───────────────────────────────────────
 app.use(
@@ -67,13 +67,12 @@ mongoose
   })
   .then(async () => {
     console.log("✅ MongoDB connected");
-    // await ensureSeedData();
   })
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // ─── BASE ROUTE ───────────────────────────────────────
 app.get("/", (req, res) => {
-  res.send("Compliance Registry System API");
+  res.send("Viaplex System API");
 });
 
 // ─── ROUTES ───────────────────────────────────────────
@@ -83,6 +82,7 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api/applications", require("./routes/providerApplications"));
 app.use("/api/services", require("./routes/services"));
 app.use("/api/bookings", require("./routes/bookings"));
+app.use("/api/standards", require("./routes/standards"));
 
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────
 app.use((err, req, res, next) => {
