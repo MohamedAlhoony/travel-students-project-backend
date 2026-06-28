@@ -3,6 +3,34 @@ const User = require("../models/User");
 const ProviderApplication = require("../models/ProviderApplication");
 const { Roles } = require("../constants/roles");
 const { ServiceTypes } = require("../constants/serviceTypes");
+// Add multer for file uploads
+const multer = require("multer");
+const path = require("path");
+
+// Configure multer storage
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 1 * 1024 * 1024, // 1MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png|gif/;
+    const extname = filetypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    const mimetype = filetypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Only images are allowed"));
+    }
+  },
+});
+
+// Make upload middleware available for routes
+exports.upload = upload;
 
 function normalizeLower(value) {
   return String(value || "")
@@ -135,6 +163,17 @@ exports.registerClientApplication = async (req, res) => {
     const email = req.body.email ? normalizeLower(req.body.email) : undefined;
     const serviceType = normalizeLower(req.body.serviceType);
     const submittedData = req.body.submittedData;
+    // Process uploaded images if any
+    const images = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        images.push({
+          data: file.buffer,
+          contentType: file.mimetype,
+          originalName: file.originalname,
+        });
+      }
+    }
 
     const validation = validateSubmittedData(serviceType, submittedData);
     if (!validation.ok) {
@@ -167,11 +206,13 @@ exports.registerClientApplication = async (req, res) => {
       activated: false,
     });
 
+    // Include images when creating the application
     const application = await ProviderApplication.create({
       applicantUserId: user._id,
       serviceType,
       status: ProviderApplication.Statuses.PENDING,
       submittedData,
+      images, // Store images with the application
     });
 
     res.status(201).json({
@@ -196,6 +237,17 @@ exports.createMyApplication = async (req, res) => {
   try {
     const serviceType = normalizeLower(req.body.serviceType);
     const submittedData = req.body.submittedData;
+    // Process uploaded images if any
+    const images = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        images.push({
+          data: file.buffer,
+          contentType: file.mimetype,
+          originalName: file.originalname,
+        });
+      }
+    }
 
     const validation = validateSubmittedData(serviceType, submittedData);
     if (!validation.ok) {
@@ -209,6 +261,7 @@ exports.createMyApplication = async (req, res) => {
       serviceType,
       status: ProviderApplication.Statuses.PENDING,
       submittedData,
+      images, // Store images with the application
     });
 
     res.status(201).json({

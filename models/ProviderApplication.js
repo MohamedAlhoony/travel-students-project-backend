@@ -32,6 +32,14 @@ const applicationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
+    // Store images as buffer data with metadata
+    images: [
+      {
+        data: Buffer,
+        contentType: String,
+        originalName: String,
+      },
+    ],
     adminDecision: {
       decidedByUserId: {
         type: mongoose.Schema.Types.ObjectId,
