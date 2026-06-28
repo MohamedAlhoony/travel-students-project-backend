@@ -32,6 +32,33 @@ const upload = multer({
 // Make upload middleware available for routes
 exports.upload = upload;
 
+// Add a separate upload middleware for registration images
+const registrationImageUpload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB limit for registration documents
+  },
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png|pdf/; // Allow PDFs for registration documents
+    const extname = filetypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    const mimetype = filetypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(
+        new Error(
+          "Only images and PDFs are allowed for registration documents",
+        ),
+      );
+    }
+  },
+});
+
+exports.registrationImageUpload = registrationImageUpload;
+
 function normalizeLower(value) {
   return String(value || "")
     .trim()
@@ -175,6 +202,18 @@ exports.registerClientApplication = async (req, res) => {
       }
     }
 
+    // Process registration images if any
+    const registrationImages = [];
+    if (req.registrationImages && req.registrationImages.length > 0) {
+      for (const file of req.registrationImages) {
+        registrationImages.push({
+          data: file.buffer,
+          contentType: file.mimetype,
+          originalName: file.originalname,
+        });
+      }
+    }
+
     const validation = validateSubmittedData(serviceType, submittedData);
     if (!validation.ok) {
       return res
@@ -213,6 +252,7 @@ exports.registerClientApplication = async (req, res) => {
       status: ProviderApplication.Statuses.PENDING,
       submittedData,
       images, // Store images with the application
+      registrationImages, // Store registration images with the application
     });
 
     res.status(201).json({
@@ -249,6 +289,18 @@ exports.createMyApplication = async (req, res) => {
       }
     }
 
+    // Process registration images if any
+    const registrationImages = [];
+    if (req.registrationImages && req.registrationImages.length > 0) {
+      for (const file of req.registrationImages) {
+        registrationImages.push({
+          data: file.buffer,
+          contentType: file.mimetype,
+          originalName: file.originalname,
+        });
+      }
+    }
+
     const validation = validateSubmittedData(serviceType, submittedData);
     if (!validation.ok) {
       return res
@@ -262,6 +314,7 @@ exports.createMyApplication = async (req, res) => {
       status: ProviderApplication.Statuses.PENDING,
       submittedData,
       images, // Store images with the application
+      registrationImages, // Store registration images with the application
     });
 
     res.status(201).json({

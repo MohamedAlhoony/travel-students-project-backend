@@ -40,6 +40,13 @@ const applicationSchema = new mongoose.Schema(
         originalName: String,
       },
     ],
+    registrationImages: [
+      {
+        data: Buffer,
+        contentType: String,
+        originalName: String,
+      },
+    ],
     adminDecision: {
       decidedByUserId: {
         type: mongoose.Schema.Types.ObjectId,
