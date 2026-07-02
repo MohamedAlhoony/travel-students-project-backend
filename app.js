@@ -6,6 +6,7 @@ const morgan = require("morgan");
 
 const app = express();
 const { seedStandards } = require("./startup/seedStandards");
+const { ensureSeedData } = require("./startup/seed");
 
 // ─── MIDDLEWARE ───────────────────────────────────────
 app.use(
@@ -67,6 +68,7 @@ mongoose
   })
   .then(async () => {
     console.log("✅ MongoDB connected");
+    // ensureSeedData();
   })
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 

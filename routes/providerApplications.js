@@ -15,8 +15,9 @@ const {
 // Public: client registers + submits provider application
 router.post(
   "/register",
-  clientApplicationRegisterValidation,
-  validate,
+  // clientApplicationRegisterValidation,
+  // validate,
+  controller.uploadFields,
   controller.registerClientApplication,
 );
 
@@ -25,8 +26,9 @@ router.post(
   "/",
   auth,
   requireRole(Roles.CLIENT),
-  clientApplicationCreateValidation,
-  validate,
+  // clientApplicationCreateValidation,
+  // validate,
+  controller.uploadOnlyImages,
   controller.createMyApplication,
 );
 

@@ -12,7 +12,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 1 * 1024 * 1024, // 1MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png|gif/;
@@ -59,9 +59,114 @@ const registrationImageUpload = multer({
 
 exports.registrationImageUpload = registrationImageUpload;
 
+// Single multer instance that accepts both fields together
+const uploadFields = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: (req, file, cb) => {
+    if (
+      file.fieldname === "images" ||
+      file.fieldname === "registrationImages"
+    ) {
+      return cb(null, true);
+    }
+    cb(new Error(`Unexpected field: ${file.fieldname}`));
+  },
+}).fields([
+  { name: "images", maxCount: 10 },
+  { name: "registrationImages", maxCount: 10 },
+]);
+
+const uploadOnlyImages = multer({
+  storage,
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === "images") {
+      return cb(null, true);
+    }
+    cb(new Error(`Unexpected field: ${file.fieldname}`));
+  },
+}).fields([{ name: "images", maxCount: 10 }]);
+
+// Error handling wrapper for multer
+function handleMulterError(req, res, next) {
+  uploadFields(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      // Multer-specific errors
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          success: false,
+          message: "File too large. Maximum file size is 2MB.",
+        });
+      }
+      if (err.code === "LIMIT_FILE_COUNT") {
+        return res.status(400).json({
+          success: false,
+          message: "Too many files uploaded.",
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    } else if (err) {
+      // Other errors
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    // Everything went fine
+    next();
+  });
+}
+
+function handleImagesMulterError(req, res, next) {
+  uploadOnlyImages(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      // Multer-specific errors
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          success: false,
+          message: "File too large. Maximum file size is 1MB.",
+        });
+      }
+      if (err.code === "LIMIT_FILE_COUNT") {
+        return res.status(400).json({
+          success: false,
+          message: "Too many files uploaded.",
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    } else if (err) {
+      // Other errors
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+    // Everything went fine
+    next();
+  });
+}
+
+exports.uploadFields = uploadFields;
+exports.uploadOnlyImages = handleImagesMulterError;
+
 function normalizeLower(value) {
   return String(value || "")
     .trim()
+    .toLowerCase();
+}
+
+// Function to normalize file names for safe storage
+function normalizeFileName(filename) {
+  return String(filename || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, "_") // Replace special characters with underscores
     .toLowerCase();
 }
 
@@ -186,33 +291,26 @@ function validateSubmittedData(serviceType, data) {
 // Public: Create client user + pending provider application
 exports.registerClientApplication = async (req, res) => {
   try {
-    const username = normalizeLower(req.body.username);
-    const email = req.body.email ? normalizeLower(req.body.email) : undefined;
-    const serviceType = normalizeLower(req.body.serviceType);
-    const submittedData = req.body.submittedData;
-    // Process uploaded images if any
-    const images = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        images.push({
-          data: file.buffer,
-          contentType: file.mimetype,
-          originalName: file.originalname,
-        });
+    // Parse the JSON data from the 'data' field
+    let userData;
+    try {
+      if (!req.body.data) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Missing user data" });
       }
+      userData = JSON.parse(req.body.data);
+    } catch (parseError) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid data format" });
     }
 
-    // Process registration images if any
-    const registrationImages = [];
-    if (req.registrationImages && req.registrationImages.length > 0) {
-      for (const file of req.registrationImages) {
-        registrationImages.push({
-          data: file.buffer,
-          contentType: file.mimetype,
-          originalName: file.originalname,
-        });
-      }
-    }
+    const username = normalizeLower(userData.username);
+    const email = userData.email ? normalizeLower(userData.email) : undefined;
+    const serviceType = normalizeLower(userData.serviceType);
+    const password = userData.password;
+    const submittedData = userData.submittedData;
 
     const validation = validateSubmittedData(serviceType, submittedData);
     if (!validation.ok) {
@@ -236,23 +334,74 @@ exports.registerClientApplication = async (req, res) => {
       }
     }
 
-    const passwordHash = await bcrypt.hash(req.body.password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Process uploaded images if any
+    const images = [];
+    if (req.files && req.files.images) {
+      for (const file of req.files.images) {
+        // Validate that file has required properties
+        if (!file.buffer || !file.mimetype || !file.originalname) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid image file uploaded" });
+        }
+        console.log(
+          "Uploaded image:",
+          file.originalname,
+          "Size:",
+          file.size,
+          "type:",
+          file.mimetype,
+        );
+        images.push({
+          data: file.buffer,
+          contentType: file.mimetype,
+          originalName: normalizeFileName(file.originalname), // Normalize file name
+        });
+      }
+    }
+
+    // Process registration images if any
+    const registrationImages = [];
+    if (req.files && req.files.registrationImages) {
+      for (const file of req.files.registrationImages) {
+        // Validate that file has required properties
+        if (!file.buffer || !file.mimetype || !file.originalname) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid registration image file uploaded",
+          });
+        }
+        registrationImages.push({
+          data: file.buffer,
+          contentType: file.mimetype,
+          originalName: normalizeFileName(file.originalname), // Normalize file name
+        });
+      }
+    }
+
+    console.log(
+      "Registration images count:",
+      registrationImages.length,
+      "Images count:",
+      images.length,
+    );
+
     const user = await User.create({
       username,
       email,
       passwordHash,
       roles: [Roles.CLIENT],
       activated: false,
+      registrationImages, // Store registration images with the user
     });
-
-    // Include images when creating the application
     const application = await ProviderApplication.create({
       applicantUserId: user._id,
       serviceType,
       status: ProviderApplication.Statuses.PENDING,
       submittedData,
       images, // Store images with the application
-      registrationImages, // Store registration images with the application
     });
 
     res.status(201).json({
@@ -275,28 +424,38 @@ exports.registerClientApplication = async (req, res) => {
 // Client (authenticated): submit a new provider application under the same account
 exports.createMyApplication = async (req, res) => {
   try {
-    const serviceType = normalizeLower(req.body.serviceType);
-    const submittedData = req.body.submittedData;
+    // Parse the JSON data from the 'data' field
+    let userData;
+    try {
+      if (!req.body.data) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Missing application data" });
+      }
+      userData = JSON.parse(req.body.data);
+    } catch (parseError) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid data format" });
+    }
+
+    const serviceType = normalizeLower(userData.serviceType);
+    const submittedData = userData.submittedData;
+
     // Process uploaded images if any
     const images = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
+    if (req.files && req.files.images) {
+      for (const file of req.files.images) {
+        // Validate that file has required properties
+        if (!file.buffer || !file.mimetype || !file.originalname) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid image file uploaded" });
+        }
         images.push({
           data: file.buffer,
           contentType: file.mimetype,
-          originalName: file.originalname,
-        });
-      }
-    }
-
-    // Process registration images if any
-    const registrationImages = [];
-    if (req.registrationImages && req.registrationImages.length > 0) {
-      for (const file of req.registrationImages) {
-        registrationImages.push({
-          data: file.buffer,
-          contentType: file.mimetype,
-          originalName: file.originalname,
+          originalName: normalizeFileName(file.originalname), // Normalize file name
         });
       }
     }
@@ -314,7 +473,6 @@ exports.createMyApplication = async (req, res) => {
       status: ProviderApplication.Statuses.PENDING,
       submittedData,
       images, // Store images with the application
-      registrationImages, // Store registration images with the application
     });
 
     res.status(201).json({

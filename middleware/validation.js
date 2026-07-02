@@ -85,44 +85,37 @@ const roleValidation = [
 ];
 
 const clientApplicationRegisterValidation = [
-  body("username")
+  body("data")
     .isString()
-    .trim()
-    .isLength({ min: 3, max: 32 })
-    .withMessage("Username must be 3-32 chars"),
-  body("password")
-    .isString()
-    .isLength({ min: 8, max: 64 })
-    .withMessage("Password must be 8-64 chars"),
-  body("email").optional().isEmail().normalizeEmail(),
-  body("serviceType")
-    .isString()
-    .trim()
-    .custom((value) =>
-      SERVICE_TYPE_VALUES.includes(String(value).toLowerCase()),
-    )
-    .withMessage(
-      `serviceType must be one of: ${SERVICE_TYPE_VALUES.join(", ")}`,
-    ),
-  body("submittedData")
-    .isObject()
-    .withMessage("submittedData must be an object"),
+    .withMessage("data must be a string")
+    .bail()
+    .custom((value) => {
+      try {
+        const data = JSON.parse(value);
+        return typeof data === "object" && data !== null;
+      } catch (e) {
+        return false;
+      }
+    })
+    .withMessage("data must be a valid JSON string"),
+  // We'll validate the contents of the data object in the controller
 ];
 
-// Client (authenticated): create a new provider application under the same account
 const clientApplicationCreateValidation = [
-  body("serviceType")
+  body("data")
     .isString()
-    .trim()
-    .custom((value) =>
-      SERVICE_TYPE_VALUES.includes(String(value).toLowerCase()),
-    )
-    .withMessage(
-      `serviceType must be one of: ${SERVICE_TYPE_VALUES.join(", ")}`,
-    ),
-  body("submittedData")
-    .isObject()
-    .withMessage("submittedData must be an object"),
+    .withMessage("data must be a string")
+    .bail()
+    .custom((value) => {
+      try {
+        const data = JSON.parse(value);
+        return typeof data === "object" && data !== null;
+      } catch (e) {
+        return false;
+      }
+    })
+    .withMessage("data must be a valid JSON string"),
+  // We'll validate the contents of the data object in the controller
 ];
 
 const applicationDecisionValidation = [

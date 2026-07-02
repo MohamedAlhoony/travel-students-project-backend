@@ -36,7 +36,13 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-
+    registrationImages: [
+      {
+        data: Buffer,
+        contentType: String,
+        originalName: String,
+      },
+    ],
     // Wallet balance (simple internal accounting).
     // Stored as a Number (currency units). Keep it non-negative.
     balance: {

@@ -41,6 +41,7 @@ exports.listApprovedServices = async (req, res) => {
                 serviceType: 1,
                 status: 1,
                 submittedData: 1,
+                images: 1, // Include images in the response
                 adminDecision: 1,
                 createdAt: 1,
                 updatedAt: 1,
@@ -115,6 +116,7 @@ exports.getApprovedServiceById = async (req, res) => {
           serviceType: 1,
           status: 1,
           submittedData: 1,
+          images: 1, // Include images in the response
           adminDecision: 1,
           createdAt: 1,
           updatedAt: 1,
